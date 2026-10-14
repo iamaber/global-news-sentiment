@@ -96,8 +96,12 @@ def main():
             )
             st.stop()
 
-        with st.spinner("Analyzing sentiment..."):
-            sentiments = analyze_sentiment(headlines, model)
+        try:
+            with st.spinner("Analyzing sentiment..."):
+                sentiments = analyze_sentiment(headlines, model)
+        except Exception as exc:
+            st.error(f"Sentiment analysis failed: {exc}")
+            st.stop()
 
         if not sentiments:
             st.error("Could not analyze sentiment. Please try again.")
