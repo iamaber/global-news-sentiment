@@ -9,11 +9,11 @@ from sentiment_utils import dedupe_and_limit, extract_titles
 FEED_URLS = [
     "https://news.google.com/rss",
     "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
-    "https://www.bbc.co.uk/feeds/rss/news/world/rss.xml",
+    "https://feeds.bbci.co.uk/news/world/rss.xml",
     "https://moxie.foxnews.com/google-publisher/latest.xml",
     "https://www.cnbc.com/id/100003114/device/rss/rss.html",
     "https://www.aljazeera.com/xml/rss/all.xml",
-    "https://news.yahoo.com/rss/mostviewed",
+    "https://feeds.npr.org/1001/rss.xml",
     "http://rss.cnn.com/rss/edition.rss",
 ]
 
