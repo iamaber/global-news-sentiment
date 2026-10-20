@@ -15,7 +15,7 @@ from sentiment_utils import aggregate_sentiment, normalize_sentiment
 # download per running process.
 HF_HOME = os.path.join(tempfile.gettempdir(), "realtime-news-sentiment-hf")
 os.environ.setdefault("HF_HOME", HF_HOME)
-os.environ.setdefault("TRANSFORMERS_CACHE", HF_HOME)
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 MODEL_NAME = "distilbert-base-uncased-finetuned-sst-2-english"
 BATCH_SIZE = 10
