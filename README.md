@@ -7,6 +7,7 @@ analysis with a Hugging Face Transformers model, and visualises the results.
 
 - Live demo: <https://huggingface.co/spaces/iamaber/Real-time-News-Sentiment-Analysis>
 - GitHub: <https://github.com/iamaber/realtime-news-sentiment>
+- Portfolio: <https://iamaber.github.io/portfolio-website/#projects>
 
 ## Features
 
