@@ -164,7 +164,7 @@ def main():
                 return "background-color: #FFB6C1"
             return "background-color: #D3D3D3"
 
-        styled_df = results_df.style.applymap(color_sentiment, subset=["sentiment"])
+        styled_df = results_df.style.map(color_sentiment, subset=["sentiment"])
         st.dataframe(styled_df, use_container_width=True, height=400)
 
         st.download_button(
