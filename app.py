@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from model_config import MODEL_NAME, MODEL_REVISION
 from news_sources import FEED_URLS, MAX_HEADLINES, fetch_headlines
 from sentiment_utils import aggregate_sentiment, normalize_sentiment
 
@@ -17,7 +18,6 @@ HF_HOME = os.path.join(tempfile.gettempdir(), "realtime-news-sentiment-hf")
 os.environ.setdefault("HF_HOME", HF_HOME)
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-MODEL_NAME = "distilbert-base-uncased-finetuned-sst-2-english"
 BATCH_SIZE = 10
 SENTIMENT_COLORS = {
     "POSITIVE": "#2E8B57",
@@ -35,7 +35,9 @@ def load_sentiment_model():
     """Load the sentiment pipeline once per process."""
     from transformers import pipeline
 
-    return pipeline("sentiment-analysis", model=MODEL_NAME)
+    return pipeline(
+        "sentiment-analysis", model=MODEL_NAME, revision=MODEL_REVISION
+    )
 
 
 @st.cache_data(ttl=300, max_entries=1, show_spinner=False)
