@@ -22,7 +22,7 @@ BATCH_SIZE = 10
 SENTIMENT_COLORS = {
     "POSITIVE": "#2E8B57",
     "NEGATIVE": "#DC143C",
-    "NEUTRAL": "#708090",
+    "UNKNOWN": "#D3D3D3",
 }
 
 st.set_page_config(
@@ -154,17 +154,23 @@ def main():
                 percentage = summary["percentages"][label]
                 st.metric(label.title(), f"{count} ({percentage:.1f}%)")
             st.metric(
-                "Average Confidence", f"{summary['average_confidence']:.2f}"
+                "Mean Model Score",
+                f"{summary['average_confidence']:.2f}",
+                help=(
+                    "Mean softmax score of the predicted label. This is model "
+                    "confidence, not accuracy."
+                ),
             )
 
         st.subheader("📋 Detailed Analysis")
 
         def color_sentiment(value):
-            if value == "POSITIVE":
-                return "background-color: #90EE90"
-            if value == "NEGATIVE":
-                return "background-color: #FFB6C1"
-            return "background-color: #D3D3D3"
+            colors = {
+                "POSITIVE": "#90EE90",
+                "NEGATIVE": "#FFB6C1",
+                "UNKNOWN": "#D3D3D3",
+            }
+            return f"background-color: {colors.get(value, '#D3D3D3')}"
 
         styled_df = results_df.style.map(color_sentiment, subset=["sentiment"])
         st.dataframe(styled_df, use_container_width=True, height=400)
