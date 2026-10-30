@@ -10,12 +10,27 @@ analysis with a Hugging Face Transformers model, and visualises the results.
 
 ## Features
 
-- Fetches headlines from eight public RSS feeds (no API key required)
+- Fetches headlines from seven public RSS feeds (no API key required)
 - Sentiment analysis with `distilbert-base-uncased-finetuned-sst-2-english`
 - Positive/negative distribution chart and summary metrics
 - Bounded, cached fetching (five-minute TTL, 50 headlines, one cache entry)
 - Clear in-app messages when a feed is unreachable or no feed responds
 - Optional FastAPI service exposing the same sentiment logic over HTTP
+
+## Model and limitations
+
+- Model:
+  [`distilbert-base-uncased-finetuned-sst-2-english`](https://huggingface.co/distilbert/distilbert-base-uncased-finetuned-sst-2-english),
+  pinned to revision `714eb0fa89d2f80546fda750413ed43d93601a13` so a Hub
+  update cannot silently change predictions.
+- License: Apache-2.0, as stated on the model card.
+- The model was fine-tuned on SST-2, a dataset of movie-review sentences. It is
+  a two-class (`POSITIVE` / `NEGATIVE`) classifier and has no neutral class.
+- Applying it to news headlines is a domain shift. Treat the labels as rough
+  signals, not ground truth.
+- "Mean Model Score" is the average softmax score of the predicted label, not
+  accuracy. This repository does not claim a measured accuracy for news
+  headlines.
 
 ## Project structure
 
