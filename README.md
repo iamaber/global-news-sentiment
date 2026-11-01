@@ -37,16 +37,18 @@ analysis with a Hugging Face Transformers model, and visualises the results.
 ```
 .
 ├── app.py                     # Single Streamlit entry point (local + Space)
+├── model_config.py            # Pinned model id and Hub revision
 ├── news_sources.py            # Bounded RSS fetching
 ├── sentiment_utils.py         # Pure dedupe / normalization / aggregation logic
-├── tests/                     # pytest tests for the pure logic
+├── tests/                     # pytest tests for fetching, API and pure logic
 ├── backend/                   # Optional FastAPI service
 │   ├── api.py
 │   └── services/
 ├── main.py                    # Convenience runner for the dashboard + API
-├── requirements.txt           # Pinned runtime dependencies
-├── requirements-api.txt       # Runtime + optional FastAPI dependencies
+├── requirements.txt           # Hash-pinned runtime dependencies
+├── requirements-api.txt       # Hash-pinned runtime + optional FastAPI deps
 ├── pyproject.toml             # uv project metadata
+├── .github/workflows/ci.yml   # Test workflow
 └── uv.lock
 ```
 
@@ -102,11 +104,17 @@ No secrets or API keys are required. The dashboard reads public RSS feeds.
 ## Tests
 
 ```bash
-uv run --extra dev pytest -q
+uv sync --extra dev --extra api
+uv run pytest -q
 ```
 
-The tests cover headline extraction, order-preserving deduplication, sentiment
-normalization and aggregation, and require no model download.
+The tests cover headline extraction, order-preserving deduplication, feed
+fetching with mocked feeds, the FastAPI routes, sentiment normalization and
+aggregation. None of them download the model. CI runs the same commands on
+every push and pull request.
+
+API tests need the `api` extra (FastAPI) and `httpx`; they are skipped when
+those packages are not installed.
 
 ## Deploying to Hugging Face Spaces
 
