@@ -1,3 +1,16 @@
+---
+title: Real-time News Sentiment Analysis
+emoji: 📊
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: 1.48.0
+app_file: app.py
+python_version: "3.12"
+pinned: false
+license: mit
+---
+
 # Real-time News Sentiment Analysis Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -90,8 +103,15 @@ uv run python main.py --mode backend
 
 - API: <http://localhost:8000>
 - Interactive docs: <http://localhost:8000/docs>
+- Readiness: <http://localhost:8000/ready> (503 until the model is loaded)
+- Liveness: <http://localhost:8000/health>
 
 `uv run python main.py --mode all` starts the API and the dashboard together.
+
+Both processes bind to `127.0.0.1` by default. The API is unauthenticated and
+runs expensive inference, so it also limits clients to 10 requests per minute
+and two concurrent inference requests. Pass `--host 0.0.0.0` only when you
+intend to expose it, and put an authenticating proxy in front.
 
 ## Configuration
 
@@ -118,24 +138,33 @@ those packages are not installed.
 
 ## Deploying to Hugging Face Spaces
 
-The Space runs as a Streamlit SDK app:
+The Space runs as a Streamlit SDK app (`sdk: streamlit`, `app_file: app.py`,
+Python 3.12), as declared in this README's frontmatter.
 
-- `app_file: app.py`
-- Dependencies are installed from the pinned `requirements.txt`
-- Only `app.py`, `news_sources.py`, `sentiment_utils.py`, `requirements.txt` and
-  this README are needed at runtime
+- Dependencies are installed from the hash-pinned `requirements.txt`
+- Only `app.py`, `model_config.py`, `news_sources.py`, `sentiment_utils.py`,
+  `requirements.txt` and this README are needed at runtime
 
-`requirements.txt` installs the CPU build of PyTorch on Linux:
+`requirements.txt` is generated from `uv.lock`:
 
+```bash
+uv export --format requirements-txt --no-dev --no-emit-project --offline \
+  --emit-index-url -o requirements.txt
 ```
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.7.1+cpu; sys_platform == "linux"
-```
 
-Pulling the default PyPI `torch` wheel on Linux also pulls CUDA libraries and
-driver packages (`nvidia-*`, `triton`, about 3 GB of wheels). This dashboard runs
-on CPU only, so the CPU index keeps the install small and avoids filling the
-Space's ephemeral disk.
+Add `--require-hashes` below the index lines after regenerating. uv emits the
+PyTorch CPU index globally because a requirements file cannot scope an index to
+a single package. The hashes still make the install integrity-safe: every
+package must match the locked hash, so nothing from either index can shadow a
+pinned dependency. pip also enables hash checking automatically whenever hashes
+are present. `requirements-api.txt` is the equivalent export with the `api`
+extra.
+
+The CPU index is needed only for the Linux `torch==2.7.1+cpu` wheel. Pulling the
+default PyPI `torch` wheel on Linux also pulls CUDA libraries and driver
+packages (`nvidia-*`, `triton`, about 3 GB of wheels). This dashboard runs on CPU
+only, so the CPU index keeps the install small and avoids filling the Space's
+ephemeral disk.
 
 ## Troubleshooting
 
