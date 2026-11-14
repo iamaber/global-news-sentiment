@@ -1,16 +1,30 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
 from services.news_fetcher import fetch_headlines
 from services.sentiment import analyze_sentiment
 
 app = FastAPI(title="News Sentiment Analysis API", version="1.0.0")
 
+
 @app.get("/")
 def get_news_sentiment():
     """Fetch latest news headlines and analyze their sentiment"""
-    headlines = fetch_headlines()
-    sentiments = analyze_sentiment(headlines)
-    results = [{"headline": h, "sentiment": s} for h, s in zip(headlines, sentiments)]
-    return results
+    try:
+        headlines = fetch_headlines()
+        if not headlines:
+            raise HTTPException(
+                status_code=503, detail="No headlines available from news sources"
+            )
+        sentiments = analyze_sentiment(headlines)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail=f"Sentiment service unavailable: {exc}"
+        ) from exc
+
+    return [{"headline": h, "sentiment": s} for h, s in zip(headlines, sentiments)]
+
 
 @app.get("/health")
 def health_check():
