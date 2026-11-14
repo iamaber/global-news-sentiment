@@ -43,11 +43,22 @@ def validate_feed_url(url: str) -> str:
     return url
 
 
+class _ValidatingRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Apply the feed URL rules to every redirect hop, not just the first URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        validate_feed_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_opener = urllib.request.build_opener(_ValidatingRedirectHandler)
+
+
 def load_feed(url: str, timeout: int = TIMEOUT_SECONDS, max_bytes: int = MAX_FEED_BYTES):
     """Fetch and parse a single feed with a bounded timeout and payload size."""
     validate_feed_url(url)
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with _opener.open(request, timeout=timeout) as response:
         payload = response.read(max_bytes)
     return feedparser.parse(payload)
 

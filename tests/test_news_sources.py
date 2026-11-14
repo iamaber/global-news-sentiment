@@ -1,4 +1,5 @@
 import time
+import urllib.request
 
 import pytest
 
@@ -92,3 +93,23 @@ def test_validate_feed_url_rejects_http_and_unknown_hosts():
     with pytest.raises(ValueError, match="allowlisted"):
         news_sources.validate_feed_url("https://evil.example/rss")
     assert news_sources.validate_feed_url(news_sources.FEED_URLS[0])
+
+
+def test_redirects_are_validated_like_the_initial_url():
+    handler = news_sources._ValidatingRedirectHandler()
+    request = urllib.request.Request(news_sources.FEED_URLS[0])
+
+    def redirect(newurl):
+        return handler.redirect_request(request, None, 302, "Found", {}, newurl)
+
+    with pytest.raises(ValueError, match="https"):
+        redirect("http://feeds.npr.org/1001/rss.xml")
+    with pytest.raises(ValueError, match="allowlisted"):
+        redirect("https://evil.example/rss")
+    assert redirect("https://feeds.npr.org/1001/rss.xml").full_url == (
+        "https://feeds.npr.org/1001/rss.xml"
+    )
+    assert any(
+        isinstance(h, news_sources._ValidatingRedirectHandler)
+        for h in news_sources._opener.handlers
+    )
