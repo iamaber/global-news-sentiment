@@ -48,11 +48,6 @@ def _terminate(process):
 def run_backend(host):
     """Run the FastAPI backend server"""
     backend_dir = Path(__file__).parent / "backend"
-    env = os.environ.copy()
-    pythonpath = [str(Path(__file__).parent)]
-    if env.get("PYTHONPATH"):
-        pythonpath.append(env["PYTHONPATH"])
-    env["PYTHONPATH"] = os.pathsep.join(pythonpath)
 
     return subprocess.Popen(
         [
@@ -66,7 +61,6 @@ def run_backend(host):
             str(API_PORT),
         ],
         cwd=backend_dir,
-        env=env,
         **_popen_kwargs(),
     )
 

@@ -3,9 +3,35 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
-import api as api_module
+from backend import api as api_module
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize(
+    ("cwd", "module"),
+    [(REPO_ROOT / "backend", "api"), (REPO_ROOT, "backend.api")],
+)
+def test_api_module_imports_without_pythonpath(cwd, module):
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+    result = subprocess.run(
+        [sys.executable, "-c", f"import {module}"],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture

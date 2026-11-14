@@ -1,14 +1,29 @@
 import asyncio
 import collections
 import logging
+import sys
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from news_sources import fetch_headlines
-from services.sentiment import analyze_sentiment, is_model_loaded, warm_up_model
+# The API imports `services` from this directory and the shared modules
+# (`news_sources`, `model_config`) from the repo root. Put both on sys.path here
+# so `uvicorn api:app` (from backend/) and `uvicorn backend.api:app` (from the
+# repo root) work without PYTHONPATH.
+_BACKEND_DIR = Path(__file__).resolve().parent
+for _path in (str(_BACKEND_DIR.parent), str(_BACKEND_DIR)):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+
+from news_sources import fetch_headlines  # noqa: E402
+from services.sentiment import (  # noqa: E402
+    analyze_sentiment,
+    is_model_loaded,
+    warm_up_model,
+)
 
 logger = logging.getLogger(__name__)
 
