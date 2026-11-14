@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.cache/
+
+# Tooling metadata
+.commandcode/
+
+# Local configuration and secrets
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Model and Hugging Face caches
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
