@@ -22,12 +22,12 @@ def run_backend():
 
 
 def run_frontend():
-    """Run the Streamlit frontend"""
-    frontend_dir = Path(__file__).parent / "frontend"
+    """Run the single-entry Streamlit dashboard"""
+    root_dir = Path(__file__).parent
     return subprocess.Popen([
         sys.executable, "-m", "streamlit", "run", "app.py", 
         "--server.port", "8501", "--server.address", "0.0.0.0"
-    ], cwd=frontend_dir)
+    ], cwd=root_dir)
 
 
 def main():
