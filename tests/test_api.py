@@ -3,9 +3,11 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
+import collections
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -142,3 +144,22 @@ def test_root_rate_limits(client, monkeypatch):
 
     assert response.status_code == 429
     assert response.headers["Retry-After"] == "60"
+
+
+def test_rate_limiter_forgets_idle_clients(client, monkeypatch):
+    monkeypatch.setattr(api_module, "_next_prune_at", 0.0)
+    monkeypatch.setattr(
+        api_module, "fetch_headlines", lambda: (["A"], ["src"], [])
+    )
+    monkeypatch.setattr(
+        api_module,
+        "analyze_sentiment",
+        lambda texts: [{"label": "POSITIVE", "score": 0.9} for _ in texts],
+    )
+    stale = time.monotonic() - 2 * api_module.RATE_LIMIT_WINDOW_SECONDS
+    api_module._request_times["idle-client"] = collections.deque([stale])
+    api_module._request_times["empty-client"] = collections.deque()
+
+    assert client.get("/").status_code == 200
+
+    assert list(api_module._request_times) == ["testclient"]
