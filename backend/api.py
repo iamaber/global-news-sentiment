@@ -34,6 +34,23 @@ QUEUE_TIMEOUT_SECONDS = 2.0
 PUBLIC_PATHS = {"/health", "/ready"}
 
 _request_times: dict[str, collections.deque[float]] = {}
+_next_prune_at = 0.0
+
+
+def _prune_idle_clients(now: float) -> None:
+    """Once per window, forget clients with no request inside the window."""
+    global _next_prune_at
+    if now < _next_prune_at:
+        return
+    _next_prune_at = now + RATE_LIMIT_WINDOW_SECONDS
+    window_start = now - RATE_LIMIT_WINDOW_SECONDS
+    idle = [
+        client
+        for client, events in _request_times.items()
+        if not events or events[-1] < window_start
+    ]
+    for client in idle:
+        del _request_times[client]
 
 
 @asynccontextmanager
@@ -62,6 +79,7 @@ async def protect_expensive_endpoint(request: Request, call_next):
     client = request.client.host if request.client else "unknown"
     now = time.monotonic()
     window_start = now - RATE_LIMIT_WINDOW_SECONDS
+    _prune_idle_clients(now)
     events = _request_times.setdefault(client, collections.deque())
     while events and events[0] < window_start:
         events.popleft()
