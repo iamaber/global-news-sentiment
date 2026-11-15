@@ -53,10 +53,19 @@ def _prune_idle_clients(now: float) -> None:
         del _request_times[client]
 
 
+def _inference_semaphore(app: FastAPI) -> asyncio.Semaphore:
+    """Return the app's inference semaphore, creating it if lifespan never ran."""
+    semaphore = getattr(app.state, "inference_semaphore", None)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        app.state.inference_semaphore = semaphore
+    return semaphore
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Warm the model at startup so the first request does not pay for it."""
-    app.state.inference_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    _inference_semaphore(app)
     try:
         await asyncio.to_thread(warm_up_model)
         logger.info("Sentiment model loaded")
@@ -91,7 +100,7 @@ async def protect_expensive_endpoint(request: Request, call_next):
         )
     events.append(now)
 
-    semaphore = request.app.state.inference_semaphore
+    semaphore = _inference_semaphore(request.app)
     try:
         await asyncio.wait_for(semaphore.acquire(), timeout=QUEUE_TIMEOUT_SECONDS)
     except TimeoutError:
