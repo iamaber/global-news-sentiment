@@ -163,3 +163,22 @@ def test_rate_limiter_forgets_idle_clients(client, monkeypatch):
     assert client.get("/").status_code == 200
 
     assert list(api_module._request_times) == ["testclient"]
+
+
+def test_root_works_when_lifespan_never_ran(monkeypatch):
+    monkeypatch.setattr(
+        api_module, "fetch_headlines", lambda: (["A"], ["src"], [])
+    )
+    monkeypatch.setattr(
+        api_module,
+        "analyze_sentiment",
+        lambda texts: [{"label": "POSITIVE", "score": 0.9} for _ in texts],
+    )
+    api_module._request_times.clear()
+    monkeypatch.delattr(
+        api_module.app.state._state, "inference_semaphore", raising=False
+    )
+
+    response = TestClient(api_module.app).get("/")
+
+    assert response.status_code == 200
