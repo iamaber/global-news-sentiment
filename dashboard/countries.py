@@ -16,8 +16,7 @@ def select_from_map() -> None:
     st.session_state[COUNTRY_KEY] = points[0]["location"] if points else None
 
 
-def map_selection(iso3s: list[str]) -> list[int] | None:
-    """Highlight the chosen country on a map whose points are `iso3s`, in order."""
+def selected_point_indices(iso3s: list[str]) -> list[int] | None:
     chosen = st.session_state.get(COUNTRY_KEY)
     return [iso3s.index(chosen)] if chosen in iso3s else None
 

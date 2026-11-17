@@ -1,13 +1,4 @@
-"""Scheduled collector for the model-sentiment history.
-
-Usage: python -m newsent.collect <dir>
-
-<dir> holds `days/YYYY-MM-DD.jsonl` (one scored headline per line, appended to
-the day it was first seen), `trend.csv` (daily mean index per region), and
-`sources.csv` (daily mean index per outlet). Both CSVs are rewritten each run.
-Previous rows are imported before fetching, so a headline is scored and
-recorded only once across runs.
-"""
+"""Scheduled collector for the model-sentiment history."""
 
 import argparse
 import json
@@ -18,7 +9,7 @@ from collections.abc import Callable, Sequence
 from datetime import date
 from pathlib import Path
 
-from newsent import feeds, history
+from newsent import feeds, history, model
 from newsent.feeds import FeedStatus, Headline
 from newsent.pipeline import Snapshot, take_snapshot
 from newsent.scores import Scores
@@ -72,9 +63,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", type=Path)
     args = parser.parse_args()
-
-    # Imported here so tests can import collect() without loading torch.
-    from newsent import model
 
     snapshot = collect(args.directory, score=model.score)
     ok = sum(status.error is None for status in snapshot.statuses)
