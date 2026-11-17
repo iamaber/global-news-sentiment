@@ -109,6 +109,7 @@ REGIONS: tuple[Region, ...] = (
         source_countries=(
             Country("India", "IND", "india"),
             Country("China", "CHN", "china"),
+            Country("Hong Kong", "HKG", "hongkong"),
             Country("Japan", "JPN", "japan"),
             Country("South Korea", "KOR", "southkorea"),
             Country("Singapore", "SGP", "singapore"),
