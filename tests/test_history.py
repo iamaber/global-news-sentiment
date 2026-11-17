@@ -5,7 +5,7 @@ from newsent import history
 from newsent.collect import collect
 from newsent.feeds import FeedStatus, Headline, headline_id
 from newsent.scores import Scores
-from newsent.store import COLUMNS, RETENTION_DAYS, DailyPoint, Store
+from newsent.store import COLUMNS, RETENTION_DAYS, DailyPoint, SourceDay, Store
 
 POSITIVE = Scores(negative=0.1, neutral=0.2, positive=0.7)
 NEGATIVE = Scores(negative=0.6, neutral=0.3, positive=0.1)
@@ -13,8 +13,8 @@ NEUTRAL = Scores(negative=0.2, neutral=0.6, positive=0.2)
 STATUSES = [FeedStatus("NPR", "americas", "https://feeds.npr.org/", 1, 0.1, None)]
 
 
-def headline(title, region="americas"):
-    return Headline(headline_id(title), title, None, "NPR", region, None)
+def headline(title, region="americas", source="NPR"):
+    return Headline(headline_id(title), title, None, source, region, None)
 
 
 class FakeModel:
@@ -37,8 +37,8 @@ def day_rows(directory):
 
 def test_collect_scores_and_records_only_headlines_new_since_the_last_run(tmp_path):
     model = FakeModel({"A": POSITIVE, "B": NEGATIVE, "C": NEUTRAL})
-    first = [headline("A"), headline("B", "europe")]
-    second = [*first, headline("C", "europe")]
+    first = [headline("A"), headline("B", "europe", "BBC News")]
+    second = [*first, headline("C", "europe", "BBC News")]
 
     collect(tmp_path, score=model, fetch=lambda: (first, STATUSES))
     snapshot = collect(tmp_path, score=model, fetch=lambda: (second, STATUSES))
@@ -53,6 +53,32 @@ def test_collect_scores_and_records_only_headlines_new_since_the_last_run(tmp_pa
         DailyPoint(today, "americas", 0.6, 1),
         DailyPoint(today, "europe", -0.25, 2),
     ]
+    assert history.parse_sources((tmp_path / "sources.csv").read_text()) == [
+        SourceDay(today, "BBC News", -0.25, 2),
+        SourceDay(today, "NPR", 0.6, 1),
+    ]
+
+
+def test_source_trend_reads_the_collectors_sources_csv_next_to_trend_csv(
+    tmp_path, isolated_db, monkeypatch
+):
+    collected = tmp_path / "history"
+    fetch = [headline("A"), headline("B", "europe", "BBC News")]
+    collect(
+        collected,
+        score=FakeModel({"A": POSITIVE, "B": NEGATIVE}),
+        fetch=lambda: (fetch, STATUSES),
+    )
+    monkeypatch.setattr(history, "HISTORY_SOURCE", str(collected / "trend.csv"))
+
+    points, origin = history.source_trend(Store(isolated_db), 7)
+
+    today = datetime.now(UTC).date()
+    assert points == [
+        SourceDay(today, "BBC News", -0.5, 1),
+        SourceDay(today, "NPR", 0.6, 1),
+    ]
+    assert origin == f"collected history from {collected / 'sources.csv'}"
 
 
 def test_collect_deletes_day_files_past_retention(tmp_path):
@@ -111,6 +137,29 @@ def test_model_trend_uses_collected_points_inside_the_window(isolated_db, monkey
     assert origin == "collected hourly by GitHub Actions"
 
 
+def test_source_trend_uses_collected_points_inside_the_window(isolated_db, monkeypatch):
+    monkeypatch.setattr(history, "HISTORY_SOURCE", history.DEFAULT_SOURCE)
+    until = date(2026, 11, 17)
+    collected = [
+        SourceDay(until - timedelta(days=offset), "NPR", 0.1, 3)
+        for offset in (-1, 0, 6, 7)
+    ]
+    sources = []
+
+    points, origin = history.source_trend(
+        Store(isolated_db),
+        7,
+        until=until,
+        load=lambda source: sources.append(source) or collected,
+    )
+
+    assert sources == [
+        "https://raw.githubusercontent.com/iamaber/realtime-news-sentiment/history/sources.csv"
+    ]
+    assert points == collected[1:3]
+    assert origin == "collected hourly by GitHub Actions"
+
+
 def test_model_trend_says_why_it_falls_back_to_this_instance(isolated_db, monkeypatch):
     monkeypatch.setattr(history, "HISTORY_SOURCE", "https://example.test/trend.csv")
     store = Store(isolated_db)
@@ -132,6 +181,11 @@ def test_model_trend_says_why_it_falls_back_to_this_instance(isolated_db, monkey
     ) == (
         local,
         "collected history unavailable: no collected days in the last 7; "
+        "showing this instance's recordings",
+    )
+    assert history.source_trend(store, 7, until=noon.date(), load=unreachable) == (
+        store.source_trend(7, until=noon.date()),
+        "collected history unavailable: network is unreachable; "
         "showing this instance's recordings",
     )
 
