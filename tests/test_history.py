@@ -218,7 +218,7 @@ def test_cached_loader_remembers_failures_until_the_period_ends(monkeypatch):
 
     clock = [1000.0]
     monkeypatch.setattr(history.time, "monotonic", lambda: clock[0])
-    cached = history.CachedLoader(load, seconds=60)
+    cached = history.ResultOrErrorCache(load, seconds=60)
 
     for _ in range(3):
         try:

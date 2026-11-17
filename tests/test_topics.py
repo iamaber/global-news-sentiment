@@ -91,7 +91,7 @@ def test_spaces_in_keywords_also_match_hyphens():
 
 def test_every_keyword_tags_its_own_topic():
     for topic in TOPICS:
-        for keyword in topic.keywords:
+        for keyword in (*topic.keywords, *topic.exact):
             title = f"Report: {keyword.removesuffix('*')} today"
             assert topic.key in topics_of(title), keyword
 

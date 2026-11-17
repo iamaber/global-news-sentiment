@@ -114,9 +114,7 @@ def load_sources(source: str) -> list[SourceDay]:
     return parse_sources(_read(source))
 
 
-class CachedLoader[P]:
-    """Remember each source's result or failure, so a dead host costs one timeout per period."""
-
+class ResultOrErrorCache[P]:
     def __init__(self, load: Callable[[str], list[P]], seconds: float):
         self._load = load
         self._seconds = seconds
@@ -137,8 +135,8 @@ class CachedLoader[P]:
         return entry[1]
 
 
-cached_load_trend = CachedLoader(load_trend, CACHE_SECONDS)
-cached_load_sources = CachedLoader(load_sources, CACHE_SECONDS)
+cached_load_trend = ResultOrErrorCache(load_trend, CACHE_SECONDS)
+cached_load_sources = ResultOrErrorCache(load_sources, CACHE_SECONDS)
 
 
 def model_trend(
@@ -158,7 +156,6 @@ def source_trend(
     until: date | None = None,
     load: Callable[[str], list[SourceDay]] = cached_load_sources,
 ) -> tuple[list[SourceDay], str]:
-    """Daily mean index per outlet; `sources.csv` sits next to `trend.csv`."""
     source = HISTORY_SOURCE and _sibling(HISTORY_SOURCE, SOURCES_FILE)
     return _collected_or_local(
         source, load, lambda: store.source_trend(days, until), days, until

@@ -16,15 +16,13 @@ st.set_page_config(page_title="Global News Sentiment", page_icon="🌐", layout=
 class Tab:
     label: str
     render: Callable[[View, Store], None]
-    # Deferred tabs render after the others so slow work (GDELT fetches) does
-    # not hold back the rest of the page.
-    deferred: bool = False
+    slow: bool = False
 
 
 TABS: tuple[Tab, ...] = (
     Tab("Regions", regions.render),
     Tab("Topics", topics.render),
-    Tab("Trends", trends.render, deferred=True),
+    Tab("Trends", trends.render, slow=True),
     Tab("Headlines", headlines.render),
     Tab("Stories", stories.render),
     Tab("Sources", sources.render),
@@ -83,7 +81,7 @@ def main():
     alerts.render_banner(view, store)
     containers = st.tabs([tab.label for tab in TABS])
     placed = list(zip(TABS, containers))
-    for tab, container in sorted(placed, key=lambda pair: pair[0].deferred):
+    for tab, container in sorted(placed, key=lambda pair: pair[0].slow):
         with container:
             tab.render(view, store)
 
