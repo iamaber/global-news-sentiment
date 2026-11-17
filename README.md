@@ -16,8 +16,10 @@ as JSON.
   previous seven days, a world map coloured by region, and the share of
   negative, neutral, and positive headlines.
 - **Trends.** Two daily series per region. GDELT tone covers the last 90 days
-  from the first load. The model's own index grows with every snapshot the
-  dashboard records.
+  from the first load. The model's own index comes from the hourly collector
+  described under [Collected history](#collected-history), and falls back to
+  the snapshots this instance has recorded when that history is unavailable.
+  The chart caption says which one you are looking at.
 - **Headlines.** Every scored headline, filterable by region, sentiment, and
   text, with the five most positive and most negative, a link to each story,
   and CSV export.
@@ -102,7 +104,7 @@ uv run python main.py --mode backend
 | --- | --- |
 | `GET /headlines` | Scored headlines with label, class probabilities, index, and per-feed status |
 | `GET /regions` | Per-region headline count, index, and label shares |
-| `GET /trends?days=30&source=model` | Daily per-region index from recorded snapshots (`days` 1–90) |
+| `GET /trends?days=30&source=model` | Daily per-region index (`days` 1–90), plus `origin`, where the series came from |
 | `GET /trends?days=30&source=gdelt` | Daily per-region GDELT tone, plus any per-region fetch errors |
 | `GET /ready` | 503 until the model is loaded |
 | `GET /health` | Liveness |
@@ -126,7 +128,10 @@ scoring requests. Pass `--host 0.0.0.0` only behind an authenticating proxy.
 │   ├── model.py           # Pinned RoBERTa model and batched scoring
 │   ├── store.py           # SQLite score cache, model trend, GDELT cache
 │   ├── gdelt.py           # GDELT DOC API client with throttling
-│   └── pipeline.py        # Fetch, score unseen headlines, persist, summarise
+│   ├── pipeline.py        # Fetch, score unseen headlines, persist, summarise
+│   ├── collect.py         # Hourly collector that writes the history branch
+│   └── history.py         # Reads collected history, falls back to the store
+├── .github/workflows/     # CI and the hourly collector
 ├── backend/api.py         # FastAPI service
 ├── main.py                # Runs the API, the dashboard, or both
 └── tests/
@@ -140,8 +145,30 @@ No API keys are needed.
 | --- | --- | --- |
 | `NEWS_SENTIMENT_DB` | SQLite file for scores and trend history | `data/news_sentiment.db` |
 | `HF_HOME` | Hugging Face model cache | a directory under the system temp dir |
+| `NEWS_HISTORY` | Collected `trend.csv`, as an https URL or a local path. Empty uses only this instance's recordings | the `history` branch on GitHub |
 
 The database keeps 120 days of headlines. Delete the file to start over.
+
+## Collected history
+
+A Space's disk is wiped on restart, so the dashboard cannot build a long trend
+on its own. `.github/workflows/collect.yml` runs `python -m newsent.collect` at
+17 minutes past every hour. Each run fetches every feed, scores only headlines
+it has not seen before, and commits two things to the `history` branch:
+
+- `days/YYYY-MM-DD.jsonl`, one scored headline per line, appended to the UTC
+  day it was first seen. Files older than 120 days are deleted.
+- `trend.csv`, the daily mean index per region over the last 90 days.
+
+The dashboard and the API read `trend.csv` from `raw.githubusercontent.com`
+and keep the result, or the error, for 15 minutes. A fork that enables the
+workflow publishes its own history. Point `NEWS_HISTORY` at the fork's raw
+URL. To collect without GitHub, run the collector from cron and set
+`NEWS_HISTORY` to `<dir>/trend.csv`:
+
+```bash
+uv run python -m newsent.collect /var/lib/newsent-history
+```
 
 ## Tests
 
@@ -151,9 +178,10 @@ uv run pytest -q
 ```
 
 The tests cover feed parsing and deduplication, URL and redirect validation,
-the score cache, trend aggregation, GDELT parsing and rate-limit handling, and
-every API route. None of them download the model or touch the network. CI runs
-the same commands on every push and pull request.
+the score cache, trend aggregation, the collector and its fallback, GDELT
+parsing and rate-limit handling, and every API route. None of them download the
+model or touch the network. CI runs the same commands on every push to `main`
+and on every pull request.
 
 ## Deploying to Hugging Face Spaces
 
@@ -162,9 +190,10 @@ in the YAML frontmatter of the Space's own README, which is not part of this
 repository. The Space needs `app.py`, `newsent/`, `.streamlit/`, and
 `requirements.txt`.
 
-A Space's disk is wiped on restart, so the model trend starts over unless the
-Space has persistent storage. Point `NEWS_SENTIMENT_DB` at `/data/news_sentiment.db`
-when persistent storage is enabled.
+A Space's disk is wiped on restart. The model trend comes from the collected
+history, so it survives restarts. To keep the instance's own fallback
+recordings too, enable persistent storage and point `NEWS_SENTIMENT_DB` at
+`/data/news_sentiment.db`.
 
 `requirements.txt` is generated from `uv.lock`:
 
@@ -194,7 +223,9 @@ the app waits five minutes before it asks again and shows whatever history is
 already cached. Each region is cached for six hours once it loads.
 
 **The model trend says "come back tomorrow".** The model trend needs at least
-two days of recorded snapshots.
+two days of data. The caption under the message names the source. If it says
+collected history is unavailable, check the latest run of the "Collect
+history" workflow.
 
 ## License
 

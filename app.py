@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from newsent import gdelt, model
+from newsent import gdelt, history, model
 from newsent.pipeline import RegionSummary, summarize, take_snapshot
 from newsent.regions import ALL_FEEDS, REGIONS
 from newsent.scores import LABELS
@@ -105,7 +105,8 @@ def trend_frame(points) -> pd.DataFrame:
 def baseline_index(store: Store) -> dict[str, float]:
     yesterday = datetime.now(UTC).date() - timedelta(days=1)
     by_region: dict[str, list[float]] = {}
-    for point in store.model_trend(BASELINE_DAYS, yesterday):
+    points, _ = history.model_trend(store, BASELINE_DAYS, yesterday)
+    for point in points:
         by_region.setdefault(point.region, []).append(point.value * 100)
     return {region: sum(v) / len(v) for region, v in by_region.items()}
 
@@ -293,20 +294,23 @@ def render_trends(store: Store):
         )
 
     st.subheader("Model sentiment index by region")
-    recorded = trend_frame(store.model_trend(days))
+    points, origin = history.model_trend(store, days)
+    recorded = trend_frame(points)
     recorded_days = recorded["day"].nunique() if not recorded.empty else 0
     if recorded_days < 2:
         st.info(
-            "This chart builds up from every snapshot the dashboard scores. "
+            "This chart builds up one day at a time. "
             f"{recorded_days} day(s) recorded so far; come back tomorrow."
         )
+        st.caption(f"Source: {origin}.")
     else:
         recorded["value"] *= 100
         st.plotly_chart(
             line_chart(recorded, "Sentiment index", smooth), use_container_width=True
         )
         st.caption(
-            f"{recorded_days} days recorded · {int(recorded['headlines'].sum())} unique headlines."
+            f"{recorded_days} days · {int(recorded['headlines'].sum())} unique "
+            f"headlines · {origin}."
         )
 
 

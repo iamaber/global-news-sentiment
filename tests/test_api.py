@@ -17,10 +17,11 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend import api as api_module
-from newsent import gdelt
+from newsent import gdelt, history
 from newsent.feeds import FeedStatus, Headline, headline_id
 from newsent.regions import REGIONS
 from newsent.scores import Scores
+from newsent.store import DailyPoint
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLISHED = datetime.now(UTC).replace(microsecond=0) - timedelta(days=1)
@@ -228,11 +229,43 @@ def test_trends_reports_model_index_per_day_and_region(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert (body["source"], body["days"]) == ("model", 30)
+    assert (body["source"], body["days"], body["origin"]) == (
+        "model",
+        30,
+        "recorded by this instance",
+    )
     today = datetime.now(UTC).date().isoformat()
     assert body["points"] == [
         {"day": today, "region": "americas", "value": -7.5, "headlines": 2},
         {"day": today, "region": "europe", "value": 0.0, "headlines": 1},
+    ]
+
+
+def test_trends_reads_collected_history_from_a_local_file(
+    client, monkeypatch, tmp_path
+):
+    today = datetime.now(UTC).date()
+    trend = tmp_path / "trend.csv"
+    trend.write_text(
+        history.format_trend(
+            [
+                DailyPoint(today - timedelta(days=30), "mea", 0.5, 4),
+                DailyPoint(today - timedelta(days=1), "europe", -0.1234, 9),
+            ]
+        )
+    )
+    monkeypatch.setattr(history, "HISTORY_SOURCE", str(trend))
+
+    body = client.get("/trends", params={"days": 7}).json()
+
+    assert body["origin"] == f"collected history from {trend}"
+    assert body["points"] == [
+        {
+            "day": (today - timedelta(days=1)).isoformat(),
+            "region": "europe",
+            "value": -12.3,
+            "headlines": 9,
+        }
     ]
 
 
