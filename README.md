@@ -19,6 +19,10 @@ as JSON.
 - **Regions.** A sentiment index per region with its change against the
   previous seven days, a world map coloured by region, and the share of
   negative, neutral, and positive headlines.
+- **Topics.** Each headline is tagged economy, conflict, politics, climate,
+  or tech by keywords in its title, and can carry several. A heatmap shows the
+  sentiment index per region and topic, and a picker lists the matching
+  headlines for any topic and region.
 - **Trends.** Two daily series per region. GDELT tone covers the last 90 days
   from the first load. The model's own index comes from the hourly collector
   described under [Collected history](#collected-history), and falls back to

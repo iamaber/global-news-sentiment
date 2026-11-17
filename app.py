@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 
-from dashboard import alerts, headlines, regions, sources, stories, trends
+from dashboard import alerts, headlines, regions, sources, stories, topics, trends
 from dashboard.data import View, get_store, load_snapshot
 from newsent import model
 from newsent.regions import ALL_FEEDS, REGIONS
@@ -23,6 +23,7 @@ class Tab:
 
 TABS: tuple[Tab, ...] = (
     Tab("Regions", regions.render),
+    Tab("Topics", topics.render),
     Tab("Trends", trends.render, deferred=True),
     Tab("Headlines", headlines.render),
     Tab("Stories", stories.render),
