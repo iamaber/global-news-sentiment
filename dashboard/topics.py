@@ -29,7 +29,8 @@ def render(view: View, store: Store) -> None:
 
     with st.expander("How topics are assigned"):
         for topic in TOPICS:
-            keywords = ", ".join(k.replace("*", "…") for k in topic.keywords)
+            words = (*topic.keywords, *topic.exact)
+            keywords = ", ".join(k.replace("*", "…") for k in words)
             st.markdown(f"**{topic.name}** · {keywords}")
         st.caption(
             "A headline gets a topic when its title contains one of the topic's "

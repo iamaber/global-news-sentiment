@@ -6,16 +6,10 @@ from dataclasses import dataclass
 class Topic:
     key: str
     name: str
-    # A keyword is a word or phrase. A trailing "*" also matches longer words
-    # ("tariff*" matches "tariffs"), and a space also matches a hyphen. A
-    # keyword with a capital letter is matched case-sensitively, so "AI" and
-    # "Fed" do not match "Ai Weiwei" or "fed up"; all other keywords ignore
-    # case.
     keywords: tuple[str, ...]
+    exact: tuple[str, ...]
 
 
-# "strike" alone is left out: in headlines it means a military strike as often
-# as a labour strike. Only the qualified phrases below are tagged.
 TOPICS: tuple[Topic, ...] = (
     Topic(
         key="economy",
@@ -24,8 +18,6 @@ TOPICS: tuple[Topic, ...] = (
             "econom*",
             "inflation",
             "recession",
-            "GDP",
-            "IMF",
             "tariff*",
             "trade",
             "market",
@@ -35,13 +27,10 @@ TOPICS: tuple[Topic, ...] = (
             "shares",
             "investor*",
             "investment*",
-            "World Bank",
-            "Federal Reserve",
             "banks",
             "banking",
             "banker*",
             "central bank*",
-            "Fed",
             "interest rate*",
             "rate hike*",
             "rate cut*",
@@ -49,7 +38,6 @@ TOPICS: tuple[Topic, ...] = (
             "profit*",
             "revenue*",
             "valuation*",
-            "IPO",
             "bonds",
             "bond sale*",
             "price",
@@ -80,6 +68,7 @@ TOPICS: tuple[Topic, ...] = (
             "public sector strike*",
             "nationwide strike*",
         ),
+        exact=("GDP", "IMF", "World Bank", "Federal Reserve", "Fed", "IPO"),
     ),
     Topic(
         key="conflict",
@@ -127,15 +116,9 @@ TOPICS: tuple[Topic, ...] = (
             "clashes",
             "incursion*",
             "settler*",
-            "NATO",
-            "IDF",
-            "Hamas",
-            "Hezbollah",
-            "Houthi*",
             "assassinat*",
-            "WWII",
-            "Taliban",
         ),
+        exact=("NATO", "IDF", "Hamas", "Hezbollah", "Houthi*", "WWII", "Taliban"),
     ),
     Topic(
         key="politics",
@@ -154,8 +137,6 @@ TOPICS: tuple[Topic, ...] = (
             "senator*",
             "lawmaker*",
             "legislat*",
-            "PM",
-            "MPs",
             "minister*",
             "president",
             "presidential",
@@ -173,7 +154,6 @@ TOPICS: tuple[Topic, ...] = (
             "impeach*",
             "governor*",
             "mayor*",
-            "Taoiseach",
             "corruption",
             "immigration",
             "migrant*",
@@ -182,8 +162,8 @@ TOPICS: tuple[Topic, ...] = (
             "asylum",
             "asean",
             "apec",
-            "Knesset",
         ),
+        exact=("PM", "MPs", "Taoiseach", "Knesset"),
     ),
     Topic(
         key="climate",
@@ -194,7 +174,6 @@ TOPICS: tuple[Topic, ...] = (
             "emission*",
             "carbon",
             "net zero",
-            "COP*",
             "heatwave*",
             "heat wave*",
             "extreme weather",
@@ -225,12 +204,12 @@ TOPICS: tuple[Topic, ...] = (
             "electric vehicle*",
             "sustainab*",
         ),
+        exact=("COP*",),
     ),
     Topic(
         key="tech",
         name="Tech",
         keywords=(
-            "AI",
             "artificial intelligence",
             "superintelligence",
             "tech",
@@ -257,6 +236,11 @@ TOPICS: tuple[Topic, ...] = (
             "social media",
             "spacecraft",
             "space probe*",
+            "video game*",
+        ),
+        exact=(
+            "AI",
+            "A.I.",
             "Silicon Valley",
             "Nvidia",
             "OpenAI",
@@ -268,8 +252,6 @@ TOPICS: tuple[Topic, ...] = (
             "TikTok",
             "Huawei",
             "Samsung",
-            "A.I.",
-            "video game*",
             "TSMC",
         ),
     ),
@@ -281,12 +263,13 @@ def _keyword_pattern(keyword: str) -> str:
     body = r"[\s-]+".join(re.escape(word) for word in stem.split())
     if keyword.endswith("*"):
         body += r"\w*"
-    return body if any(c.isupper() for c in keyword) else f"(?i:{body})"
+    return body
 
 
 def _topic_pattern(topic: Topic) -> re.Pattern[str]:
-    keywords = "|".join(_keyword_pattern(k) for k in topic.keywords)
-    return re.compile(rf"(?<!\w)(?:{keywords})(?!\w)")
+    alternatives = [f"(?i:{_keyword_pattern(k)})" for k in topic.keywords]
+    alternatives += [_keyword_pattern(k) for k in topic.exact]
+    return re.compile(rf"(?<!\w)(?:{'|'.join(alternatives)})(?!\w)")
 
 
 _PATTERNS = {topic.key: _topic_pattern(topic) for topic in TOPICS}

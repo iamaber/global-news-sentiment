@@ -3,8 +3,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import combinations
 
-# Picked on two live snapshots: 0.35 joined only same-event headlines, while
-# 0.30 already merged a Kyiv bridge strike into the Crimea bridge story.
 SIMILARITY_THRESHOLD = 0.35
 
 STOPWORDS = frozenset(

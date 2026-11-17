@@ -1,9 +1,3 @@
-"""Countries and the outlets based in them.
-
-An outlet joins its country by `Feed.country == Country.name`. A feed whose
-`country` names no single country is listed in NON_COUNTRY_ORIGINS instead.
-"""
-
 from collections import defaultdict
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
@@ -43,7 +37,6 @@ COUNTRIES: dict[str, CountryOutlets] = {
 def daily_index(
     points: Iterable[SourceDay], sources: Collection[str]
 ) -> list[IndexDay]:
-    """Mean index per day over every headline from `sources`, oldest day first."""
     net: dict[date, float] = defaultdict(float)
     count: dict[date, int] = defaultdict(int)
     for point in points:

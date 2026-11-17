@@ -76,7 +76,7 @@ def render(view: View, store: Store) -> None:
         )
         fig.update_coloraxes(colorbar=dict(title="Index", thickness=10))
         fig.update_traces(
-            selectedpoints=country_page.map_selection(list(countries["iso3"]))
+            selectedpoints=country_page.selected_point_indices(list(countries["iso3"]))
         )
         st.plotly_chart(
             style_figure(fig, 380),
