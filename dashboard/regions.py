@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from dashboard import countries as country_page
 from dashboard.data import (
     BASELINE_DAYS,
     LABEL_COLORS,
@@ -74,7 +75,16 @@ def render(view: View, store: Store) -> None:
             showland=True,
         )
         fig.update_coloraxes(colorbar=dict(title="Index", thickness=10))
-        st.plotly_chart(style_figure(fig, 380), use_container_width=True)
+        fig.update_traces(
+            selectedpoints=country_page.map_selection(list(countries["iso3"]))
+        )
+        st.plotly_chart(
+            style_figure(fig, 380),
+            use_container_width=True,
+            on_select=country_page.select_from_map,
+            selection_mode="points",
+            key=country_page.MAP_KEY,
+        )
 
     with bar_col:
         st.subheader("Tone mix")
@@ -97,3 +107,5 @@ def render(view: View, store: Store) -> None:
         fig.update_xaxes(tickformat=".0%", title=None, range=[0, 1])
         fig.update_yaxes(title=None, autorange="reversed")
         st.plotly_chart(style_figure(fig, 380), use_container_width=True)
+
+    country_page.render(view, store)
