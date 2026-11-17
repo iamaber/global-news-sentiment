@@ -171,11 +171,13 @@ The database keeps 120 days of headlines. Delete the file to start over.
 A Space's disk is wiped on restart, so the dashboard cannot build a long trend
 on its own. `.github/workflows/collect.yml` runs `python -m newsent.collect` at
 17 minutes past every hour. Each run fetches every feed, scores only headlines
-it has not seen before, and commits two things to the `history` branch:
+it has not seen before, and commits three things to the `history` branch:
 
 - `days/YYYY-MM-DD.jsonl`, one scored headline per line, appended to the UTC
   day it was first seen. Files older than 120 days are deleted.
 - `trend.csv`, the daily mean index per region over the last 90 days.
+- `sources.csv`, the daily mean index per outlet over the last 90 days. Country
+  pages read it from the same directory as `trend.csv`.
 
 The dashboard and the API read `trend.csv` from `raw.githubusercontent.com`
 and keep the result, or the error, for 15 minutes. A fork that enables the
