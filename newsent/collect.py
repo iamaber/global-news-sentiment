@@ -3,9 +3,10 @@
 Usage: python -m newsent.collect <dir>
 
 <dir> holds `days/YYYY-MM-DD.jsonl` (one scored headline per line, appended to
-the day it was first seen) and `trend.csv` (daily mean index per region,
-rewritten each run). Previous rows are imported before fetching, so a headline
-is scored and recorded only once across runs.
+the day it was first seen), `trend.csv` (daily mean index per region), and
+`sources.csv` (daily mean index per outlet). Both CSVs are rewritten each run.
+Previous rows are imported before fetching, so a headline is scored and
+recorded only once across runs.
 """
 
 import argparse
@@ -55,9 +56,14 @@ def collect(
             if date.fromisoformat(path.stem) < cutoff:
                 path.unlink()
 
-        trend = store.model_trend(history.TREND_DAYS, snapshot.taken_at.date())
+        until = snapshot.taken_at.date()
         (directory / "trend.csv").write_text(
-            history.format_trend(trend), encoding="utf-8"
+            history.format_trend(store.model_trend(history.TREND_DAYS, until)),
+            encoding="utf-8",
+        )
+        (directory / history.SOURCES_FILE).write_text(
+            history.format_sources(store.source_trend(history.TREND_DAYS, until)),
+            encoding="utf-8",
         )
     return snapshot
 

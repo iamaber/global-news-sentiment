@@ -62,6 +62,14 @@ class DailyPoint:
     headlines: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class SourceDay:
+    day: date
+    source: str
+    value: float
+    headlines: int
+
+
 class Store:
     def __init__(self, path: str | os.PathLike | None = None):
         self.path = Path(path or os.environ.get("NEWS_SENTIMENT_DB") or DEFAULT_DB_PATH)
@@ -136,6 +144,15 @@ class Store:
                 [day.isoformat() for day in window(days, until)],
             ).fetchall()
         return [DailyPoint(date.fromisoformat(d), r, v, n) for d, r, v, n in rows]
+
+    def source_trend(self, days: int, until: date | None = None) -> list[SourceDay]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT day, source, AVG(positive - negative), COUNT(*) FROM headlines "
+                "WHERE day BETWEEN ? AND ? GROUP BY day, source ORDER BY day, source",
+                [day.isoformat() for day in window(days, until)],
+            ).fetchall()
+        return [SourceDay(date.fromisoformat(d), s, v, n) for d, s, v, n in rows]
 
     def gdelt_fetched_at(self, region: str) -> datetime | None:
         with self._connect() as db:
