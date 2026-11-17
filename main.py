@@ -47,20 +47,18 @@ def _terminate(process):
 
 def run_backend(host):
     """Run the FastAPI backend server"""
-    backend_dir = Path(__file__).parent / "backend"
-
     return subprocess.Popen(
         [
             sys.executable,
             "-m",
             "uvicorn",
-            "api:app",
+            "backend.api:app",
             "--host",
             host,
             "--port",
             str(API_PORT),
         ],
-        cwd=backend_dir,
+        cwd=Path(__file__).parent,
         **_popen_kwargs(),
     )
 
