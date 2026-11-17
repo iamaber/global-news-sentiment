@@ -12,6 +12,19 @@ from newsent.scores import Scores
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "news_sentiment.db"
 RETENTION_DAYS = 120
 SQLITE_MAX_VARIABLES = 900
+COLUMNS = (
+    "id",
+    "title",
+    "link",
+    "source",
+    "region",
+    "published",
+    "first_seen",
+    "day",
+    "negative",
+    "neutral",
+    "positive",
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS headlines (
@@ -80,34 +93,47 @@ class Store:
         self, scored: Iterable[tuple[Headline, Scores]], seen_at: datetime
     ) -> None:
         rows = [
-            (
-                h.id,
-                h.title,
-                h.link,
-                h.source,
-                h.region,
-                h.published.isoformat() if h.published else None,
-                seen_at.isoformat(),
-                seen_at.astimezone(UTC).date().isoformat(),
-                s.negative,
-                s.neutral,
-                s.positive,
-            )
+            {
+                "id": h.id,
+                "title": h.title,
+                "link": h.link,
+                "source": h.source,
+                "region": h.region,
+                "published": h.published.isoformat() if h.published else None,
+                "first_seen": seen_at.isoformat(),
+                "day": seen_at.astimezone(UTC).date().isoformat(),
+                "negative": s.negative,
+                "neutral": s.neutral,
+                "positive": s.positive,
+            }
             for h, s in scored
         ]
-        cutoff = (seen_at - timedelta(days=RETENTION_DAYS)).date().isoformat()
         with self._connect() as db:
-            db.executemany(
-                "INSERT OR IGNORE INTO headlines VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows
+            _insert(db, rows)
+            db.execute(
+                "DELETE FROM headlines WHERE day < ?",
+                (retention_cutoff(seen_at).isoformat(),),
             )
-            db.execute("DELETE FROM headlines WHERE day < ?", (cutoff,))
+
+    def import_rows(self, rows: Iterable[Mapping]) -> None:
+        with self._connect() as db:
+            _insert(db, rows)
+
+    def rows_seen_at(self, seen_at: datetime) -> list[dict]:
+        with self._connect() as db:
+            rows = db.execute(
+                f"SELECT {', '.join(COLUMNS)} FROM headlines WHERE first_seen = ? "
+                "ORDER BY rowid",
+                (seen_at.isoformat(),),
+            ).fetchall()
+        return [dict(zip(COLUMNS, row, strict=True)) for row in rows]
 
     def model_trend(self, days: int, until: date | None = None) -> list[DailyPoint]:
         with self._connect() as db:
             rows = db.execute(
                 "SELECT day, region, AVG(positive - negative), COUNT(*) FROM headlines "
                 "WHERE day BETWEEN ? AND ? GROUP BY day, region ORDER BY day, region",
-                _window(days, until),
+                [day.isoformat() for day in window(days, until)],
             ).fetchall()
         return [DailyPoint(date.fromisoformat(d), r, v, n) for d, r, v, n in rows]
 
@@ -136,11 +162,23 @@ class Store:
             rows = db.execute(
                 "SELECT day, region, tone FROM gdelt_tone WHERE day BETWEEN ? AND ? "
                 "ORDER BY day, region",
-                _window(days, until),
+                [day.isoformat() for day in window(days, until)],
             ).fetchall()
         return [DailyPoint(date.fromisoformat(d), r, v) for d, r, v in rows]
 
 
-def _window(days: int, until: date | None) -> tuple[str, str]:
+def window(days: int, until: date | None = None) -> tuple[date, date]:
     end = until or datetime.now(UTC).date()
-    return (end - timedelta(days=days - 1)).isoformat(), end.isoformat()
+    return end - timedelta(days=days - 1), end
+
+
+def retention_cutoff(now: datetime) -> date:
+    return (now - timedelta(days=RETENTION_DAYS)).astimezone(UTC).date()
+
+
+def _insert(db: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
+    db.executemany(
+        f"INSERT OR IGNORE INTO headlines ({', '.join(COLUMNS)}) "
+        f"VALUES ({', '.join('?' * len(COLUMNS))})",
+        ([row[column] for column in COLUMNS] for row in rows),
+    )

@@ -10,7 +10,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from newsent import gdelt
+from newsent import gdelt, history
 from newsent.feeds import fetch_headlines
 from newsent.model import get_pipeline, is_loaded, score
 from newsent.pipeline import Snapshot, summarize, take_snapshot
@@ -203,10 +203,11 @@ def get_trends(
     store = get_store()
     if source == "model":
         with _hide_internal_errors():
-            points = store.model_trend(days)
+            points, origin = history.model_trend(store, days)
         return {
             "source": source,
             "days": days,
+            "origin": origin,
             "points": [
                 {
                     "day": p.day.isoformat(),
