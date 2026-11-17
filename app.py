@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 
-from dashboard import headlines, regions, sources, trends
+from dashboard import alerts, headlines, regions, sources, trends
 from dashboard.data import View, get_store, load_snapshot
 from newsent import model
 from newsent.regions import ALL_FEEDS, REGIONS
@@ -78,6 +78,7 @@ def main():
         st.stop()
 
     render_header(view)
+    alerts.render_banner(view, store)
     containers = st.tabs([tab.label for tab in TABS])
     placed = list(zip(TABS, containers))
     for tab, container in sorted(placed, key=lambda pair: pair[0].deferred):
