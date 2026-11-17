@@ -19,6 +19,11 @@ as JSON.
 - **Regions.** A sentiment index per region with its change against the
   previous seven days, a world map coloured by region, and the share of
   negative, neutral, and positive headlines.
+- **Countries.** Click a country on the Regions map, or pick one from the list
+  under it, to open its page. It lists the outlets based there with their
+  current headline count and mean index, the country's daily index, and its
+  current headlines. A country with no outlet of its own shows its region's
+  figures.
 - **Topics.** Each headline is tagged economy, conflict, politics, climate,
   or tech by keywords in its title, and can carry several. A heatmap shows the
   sentiment index per region and topic, and a picker lists the matching
