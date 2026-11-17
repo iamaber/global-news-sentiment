@@ -27,6 +27,9 @@ as JSON.
 - **Headlines.** Every scored headline, filterable by region, sentiment, and
   text, with the five most positive and most negative, a link to each story,
   and CSV export.
+- **Stories.** Headlines about the same event, grouped across regions by
+  shared title words, with each region's mean index for the story and its
+  headlines, sources, and links.
 - **Sources.** Per-feed status, headline count, and fetch latency.
 
 ## Regions and outlets
