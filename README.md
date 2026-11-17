@@ -120,7 +120,13 @@ scoring requests. Pass `--host 0.0.0.0` only behind an authenticating proxy.
 
 ```
 .
-├── app.py                 # Streamlit dashboard
+├── app.py                 # Streamlit entry point: header and tab registry
+├── dashboard/
+│   ├── data.py            # Snapshot view, cached store, chart helpers
+│   ├── regions.py         # Regions tab
+│   ├── trends.py          # Trends tab
+│   ├── headlines.py       # Headlines tab
+│   └── sources.py         # Sources tab
 ├── newsent/
 │   ├── regions.py         # Regions, outlets, and countries (single registry)
 │   ├── feeds.py           # Bounded, concurrent RSS fetching
@@ -187,8 +193,8 @@ and on every pull request.
 
 The Space runs `app.py` as a Streamlit SDK app on Python 3.12. Its settings live
 in the YAML frontmatter of the Space's own README, which is not part of this
-repository. The Space needs `app.py`, `newsent/`, `.streamlit/`, and
-`requirements.txt`.
+repository. The Space needs `app.py`, `dashboard/`, `newsent/`, `.streamlit/`,
+and `requirements.txt`.
 
 A Space's disk is wiped on restart. The model trend comes from the collected
 history, so it survives restarts. To keep the instance's own fallback
