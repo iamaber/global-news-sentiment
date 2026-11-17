@@ -209,10 +209,15 @@ and on every pull request.
 
 ## Deploying to Hugging Face Spaces
 
-The Space runs `app.py` as a Streamlit SDK app on Python 3.12. Its settings live
-in the YAML frontmatter of the Space's own README, which is not part of this
-repository. The Space needs `app.py`, `dashboard/`, `newsent/`, `.streamlit/`,
-and `requirements.txt`.
+The Space is a Docker Space built from `Dockerfile`, which runs `app.py` with
+Streamlit on Python 3.12 and port 8501. It is not a Streamlit SDK Space because
+that SDK installs `requirements.txt` together with unhashed packages of its own
+in one `pip` command, and `--require-hashes` then rejects the whole install.
+
+The Space's settings live in the YAML frontmatter of its own README, which is
+not part of this repository. It needs `sdk: docker` and `app_port: 8501`. To
+deploy, upload `Dockerfile`, `app.py`, `dashboard/`, `newsent/`, `.streamlit/`
+and `requirements.txt` with `hf upload <space> . --repo-type space`.
 
 A Space's disk is wiped on restart. The model trend comes from the collected
 history, so it survives restarts. To keep the instance's own fallback
