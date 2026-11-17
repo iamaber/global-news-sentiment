@@ -35,3 +35,6 @@ models/
 
 # Logs
 *.log
+
+# Local sentiment history (SQLite)
+data/
