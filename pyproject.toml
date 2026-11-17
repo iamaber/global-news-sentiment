@@ -1,7 +1,7 @@
 [project]
 name = "realtime-news-sentiment"
-version = "0.2.0"
-description = "Real-time news sentiment dashboard powered by Hugging Face Transformers and Streamlit."
+version = "0.3.0"
+description = "Regional news sentiment dashboard and API: live RSS headlines scored by a three-class RoBERTa model, with 30/90-day regional trends."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
