@@ -12,6 +12,10 @@ as JSON.
 
 ## What the dashboard shows
 
+- **Alerts.** A warning above the tabs for each region whose index today sits
+  more than two standard deviations from its mean over the previous seven
+  days. A region needs at least five of those days, with some variation, before
+  it can be judged.
 - **Regions.** A sentiment index per region with its change against the
   previous seven days, a world map coloured by region, and the share of
   negative, neutral, and positive headlines.
