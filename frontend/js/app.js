@@ -2,6 +2,7 @@ import { clearCache, describeError, getJson } from "./api.js";
 import { h, percent, plural, signed, utcTime } from "./dom.js";
 import { indexRegistry, indexSnapshot } from "./model.js";
 import * as country from "./views/country.js";
+import * as headlines from "./views/headlines.js";
 import * as regions from "./views/regions.js";
 import * as sources from "./views/sources.js";
 import * as topics from "./views/topics.js";
@@ -12,6 +13,7 @@ const VIEWS = {
   country: country.render,
   topics: topics.render,
   trends: trends.render,
+  headlines: headlines.render,
   sources: sources.render,
 };
 const DEFAULT_VIEW = Object.keys(VIEWS)[0];
