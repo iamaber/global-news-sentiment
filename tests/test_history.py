@@ -1,6 +1,8 @@
 import json
 from datetime import UTC, date, datetime, timedelta
 
+import pytest
+
 from newsent import gdelt, history
 from newsent.collect import collect, collect_gdelt
 from newsent.feeds import FeedStatus, Headline, headline_id
@@ -249,6 +251,9 @@ def test_collect_gdelt_fills_missing_days_newest_first_up_to_the_cap(tmp_path):
     collected = DailyPoint(TODAY - timedelta(days=1), "mea", -0.5, 9)
     expired = DailyPoint(TODAY - timedelta(days=91), "mea", 1.0, 9)
     (tmp_path / "gdelt.csv").write_text(history.format_gdelt([expired, collected]))
+    (tmp_path / "gdelt-countries.csv").write_text(
+        history.format_gdelt_countries(gdelt.REGION_BY_CAMEO)
+    )
     requested = []
 
     added = collect_gdelt(
@@ -260,6 +265,35 @@ def test_collect_gdelt_fills_missing_days_newest_first_up_to_the_cap(tmp_path):
         *(DailyPoint(day, "europe", -2.0, 100) for day in days_ago(*range(16, 1, -1))),
         collected,
     ]
+
+
+@pytest.mark.parametrize(
+    "recorded", [None, "code,region\nUSA,europe\n"], ids=["missing", "different"]
+)
+def test_collect_gdelt_rebuilds_tone_counted_under_another_country_mapping(
+    tmp_path, capsys, recorded
+):
+    collect_gdelt(tmp_path, TODAY, europe_tone)
+    countries = tmp_path / "gdelt-countries.csv"
+    current = countries.read_text()
+    if recorded is None:
+        countries.unlink()
+    else:
+        countries.write_text(recorded)
+    requested = []
+
+    def mea_tone(day):
+        requested.append(day)
+        return [DailyPoint(day, "mea", 1.5, 20)]
+
+    added = collect_gdelt(tmp_path, TODAY, mea_tone)
+
+    assert requested == added == days_ago(*range(1, 16))
+    assert history.parse_gdelt((tmp_path / "gdelt.csv").read_text()) == [
+        DailyPoint(day, "mea", 1.5, 20) for day in days_ago(*range(15, 0, -1))
+    ]
+    assert countries.read_text() == current
+    assert "gdelt-countries.csv" in capsys.readouterr().err
 
 
 def test_collect_gdelt_backfills_90_days_then_fetches_one_day_per_day(tmp_path):
