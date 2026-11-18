@@ -36,4 +36,4 @@ models/
 *.log
 
 # Local sentiment history (SQLite)
-data/
+/data/
