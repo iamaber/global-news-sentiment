@@ -19,7 +19,6 @@ dist/
 # Local configuration and secrets
 .env
 .env.*
-.streamlit/secrets.toml
 
 # Model and Hugging Face caches
 models/
@@ -37,4 +36,4 @@ models/
 *.log
 
 # Local sentiment history (SQLite)
-data/
+/data/

@@ -1,32 +1,76 @@
 import asyncio
 import collections
 import logging
+import statistics
 import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from newsent import history
-from newsent.feeds import fetch_headlines
-from newsent.model import get_pipeline, is_loaded, score
-from newsent.pipeline import Snapshot, summarize, take_snapshot
-from newsent.regions import REGIONS_BY_KEY
+from newsent.alerts import detect
+from newsent.countries import COUNTRIES, daily_index
+from newsent.feeds import FeedStatus, fetch_headlines
+from newsent.model import MODEL_NAME, MODEL_REVISION, get_pipeline, is_loaded, score
+from newsent.pipeline import Scored, Snapshot, summarize, take_snapshot
+from newsent.regions import REGIONS, REGIONS_BY_KEY
 from newsent.scores import LABELS
-from newsent.store import Store
+from newsent.store import DailyPoint, Store
+from newsent.stories import group_stories
+from newsent.topics import TOPICS, topics_of
 
 logger = logging.getLogger(__name__)
 
-RATE_LIMIT_REQUESTS = 10
+RATE_LIMIT_REQUESTS = 60
 RATE_LIMIT_WINDOW_SECONDS = 60
 MAX_CONCURRENT_REQUESTS = 2
 QUEUE_TIMEOUT_SECONDS = 2.0
 SNAPSHOT_TTL_SECONDS = 300
-PUBLIC_PATHS = {"/health", "/ready"}
-INFERENCE_PATHS = {"/headlines", "/regions"}
+API_PREFIX = "/api/"
+INFERENCE_PATHS = {"/api/snapshot"}
+WINDOWS = (7, 30, 90)
+BASELINE_DAYS = 7
+FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+NO_HEADLINES = "No headlines available from news sources"
+
+Days = Annotated[int, Query(ge=1, le=90)]
+
+REGISTRY = {
+    "model": {"name": MODEL_NAME, "revision": MODEL_REVISION},
+    "regions": [
+        {
+            "key": region.key,
+            "name": region.name,
+            "feeds": [
+                {"name": feed.name, "country": feed.country} for feed in region.feeds
+            ],
+            "countries": [
+                {"iso3": country.iso3, "name": country.name}
+                for country in region.source_countries
+            ],
+        }
+        for region in REGIONS
+    ],
+    "topics": [
+        {
+            "key": topic.key,
+            "name": topic.name,
+            "keywords": [
+                word.replace("*", "…") for word in (*topic.keywords, *topic.exact)
+            ],
+        }
+        for topic in TOPICS
+    ],
+    "windows": list(WINDOWS),
+    "baseline_days": BASELINE_DAYS,
+}
 
 _request_times: dict[str, collections.deque[float]] = {}
 _next_prune_at = 0.0
@@ -70,12 +114,12 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="News Sentiment API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="News Sentiment API", version="3.0.0", lifespan=lifespan)
 
 
 @app.middleware("http")
-async def protect_expensive_endpoints(request: Request, call_next):
-    if request.url.path in PUBLIC_PATHS:
+async def protect_api(request: Request, call_next):
+    if not request.url.path.startswith(API_PREFIX):
         return await call_next(request)
 
     client = request.client.host if request.client else "unknown"
@@ -121,17 +165,15 @@ def _hide_internal_errors():
 
 
 def latest_snapshot() -> Snapshot:
+    """The cached snapshot, or a fresh one. A snapshot with no headlines is not cached."""
     global _snapshot
     with _snapshot_lock:
         if _snapshot and time.monotonic() - _snapshot[0] < SNAPSHOT_TTL_SECONDS:
             return _snapshot[1]
         with _hide_internal_errors():
             snapshot = take_snapshot(get_store(), fetch=fetch_headlines, score=score)
-        if not snapshot.items:
-            raise HTTPException(
-                status_code=503, detail="No headlines available from news sources"
-            )
-        _snapshot = (time.monotonic(), snapshot)
+        if snapshot.items:
+            _snapshot = (time.monotonic(), snapshot)
         return snapshot
 
 
@@ -139,47 +181,86 @@ def _index(net: float) -> float:
     return round(net * 100, 1)
 
 
-@app.get("/headlines")
-def get_headlines():
-    """Latest scored headlines from every regional feed, plus per-feed status."""
-    snapshot = latest_snapshot()
+def _iso(moment: datetime | None) -> str | None:
+    return moment.isoformat() if moment else None
+
+
+def _headline(item: Scored) -> dict:
+    headline, scores = item.headline, item.scores
     return {
-        "taken_at": snapshot.taken_at.isoformat(),
-        "headlines": [
-            {
-                "id": item.headline.id,
-                "title": item.headline.title,
-                "link": item.headline.link,
-                "source": item.headline.source,
-                "region": item.headline.region,
-                "published": item.headline.published.isoformat()
-                if item.headline.published
-                else None,
-                "label": item.scores.label,
-                "scores": {label: getattr(item.scores, label) for label in LABELS},
-                "index": _index(item.scores.net),
-            }
-            for item in snapshot.items
-        ],
-        "sources": [
-            {
-                "source": status.source,
-                "region": status.region,
-                "headlines": status.headlines,
-                "seconds": status.seconds,
-                "error": status.error,
-            }
-            for status in snapshot.statuses
-        ],
+        "id": headline.id,
+        "title": headline.title,
+        "link": headline.link,
+        "source": headline.source,
+        "region": headline.region,
+        "published": _iso(headline.published),
+        "label": scores.label,
+        "scores": {label: getattr(scores, label) for label in LABELS},
+        "index": _index(scores.net),
+        "topics": list(topics_of(headline.title)),
     }
 
 
-@app.get("/regions")
-def get_regions():
-    """Per-region headline count, sentiment index and label shares."""
+def _source(status: FeedStatus) -> dict:
+    return {
+        "source": status.source,
+        "region": status.region,
+        "headlines": status.headlines,
+        "seconds": status.seconds,
+        "error": status.error,
+    }
+
+
+def _baseline_days() -> list[DailyPoint]:
+    """Daily model index per region over the BASELINE_DAYS days ending yesterday."""
+    yesterday = datetime.now(UTC).date() - timedelta(days=1)
+    with _hide_internal_errors():
+        points, _ = history.model_trend(get_store(), BASELINE_DAYS, until=yesterday)
+    return [DailyPoint(p.day, p.region, p.value * 100, p.headlines) for p in points]
+
+
+def _stories(items: list[Scored]) -> list[dict]:
+    stories = group_stories([(i.headline.title, i.headline.region) for i in items])
+    return [
+        {
+            "lead": items[story.lead].headline.id,
+            "regions": [r.key for r in REGIONS if r.key in story.regions],
+            "headlines": [items[member].headline.id for member in story.members],
+        }
+        for story in stories
+    ]
+
+
+@app.get("/api/registry")
+def get_registry(response: Response):
+    """Regions with their outlets and countries, topics, and the model."""
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return REGISTRY
+
+
+@app.get("/api/snapshot")
+def get_snapshot():
+    """Scored headlines, feed status, region summaries, alerts and stories."""
     snapshot = latest_snapshot()
+    sources = [_source(status) for status in snapshot.statuses]
+    if not snapshot.items:
+        return JSONResponse(
+            {"detail": NO_HEADLINES, "sources": sources}, status_code=503
+        )
+
+    summaries = summarize(snapshot.items)
+    baseline_days = _baseline_days()
+    by_region: dict[str, list[float]] = {}
+    for point in baseline_days:
+        by_region.setdefault(point.region, []).append(point.value)
+    baseline = {key: statistics.fmean(values) for key, values in by_region.items()}
+    today = {s.region: s.net * 100 for s in summaries if s.headlines}
+
     return {
         "taken_at": snapshot.taken_at.isoformat(),
+        "newly_scored": snapshot.newly_scored,
+        "headlines": [_headline(item) for item in snapshot.items],
+        "sources": sources,
         "regions": [
             {
                 "key": summary.region,
@@ -187,17 +268,27 @@ def get_regions():
                 "headlines": summary.headlines,
                 "index": _index(summary.net),
                 "shares": summary.shares,
+                "baseline": round(baseline[summary.region], 1)
+                if summary.region in baseline
+                else None,
             }
-            for summary in summarize(snapshot.items)
+            for summary in summaries
         ],
+        "alerts": [
+            {
+                "region": alert.region,
+                "today": round(alert.today, 1),
+                "mean": round(alert.mean, 1),
+                "z": round(alert.z, 1),
+            }
+            for alert in detect(today, baseline_days)
+        ],
+        "stories": _stories(snapshot.items),
     }
 
 
-@app.get("/trends")
-def get_trends(
-    days: int = Query(30, ge=1, le=90),
-    source: Literal["model", "gdelt"] = "model",
-):
+@app.get("/api/trends")
+def get_trends(days: Days = 30, source: Literal["model", "gdelt"] = "model"):
     """Daily per-region series: our model's index, or GDELT's tone."""
     if source == "model":
         with _hide_internal_errors():
@@ -234,6 +325,34 @@ def get_trends(
     }
 
 
+@app.get("/api/countries/{iso3}")
+def get_country(iso3: str, days: Days = 30):
+    """A country's outlets, or its region's when it has none, and their daily index."""
+    entry = COUNTRIES.get(iso3)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Unknown country: {iso3}")
+    feeds = entry.feeds or entry.region.feeds
+    with _hide_internal_errors():
+        points, origin = history.source_trend(get_store(), days)
+    series = daily_index(points, {feed.name for feed in feeds})
+    return {
+        "iso3": iso3,
+        "name": entry.country.name,
+        "region": entry.region.key,
+        "outlets": [feed.name for feed in feeds],
+        "fallback": not entry.feeds,
+        "origin": origin,
+        "points": [
+            {
+                "day": p.day.isoformat(),
+                "value": _index(p.value),
+                "headlines": p.headlines,
+            }
+            for p in series
+        ],
+    }
+
+
 @app.get("/health")
 def health_check():
     """Liveness check: the process is serving requests"""
@@ -246,3 +365,10 @@ def readiness_check():
     if not is_loaded():
         raise HTTPException(status_code=503, detail="Model not loaded")
     return {"status": "ready"}
+
+
+app.mount(
+    "/",
+    StaticFiles(directory=FRONTEND_DIR, html=True, check_dir=False),
+    name="frontend",
+)

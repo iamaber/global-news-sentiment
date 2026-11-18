@@ -1,6 +1,0 @@
-[theme]
-primaryColor = "#3E63DD"
-font = "sans serif"
-
-[browser]
-gatherUsageStats = false

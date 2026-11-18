@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Global News Sentiment</title>
+  <meta name="description" content="How news from four world regions reads right now, scored by a sentiment model.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%234B3CA0'/%3E%3Cpath d='M8 1a7 7 0 0 1 0 14z' fill='%23D9A21B'/%3E%3C/svg%3E">
+  <link rel="preload" href="vendor/atkinson-hyperlegible-next-5.3.0-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/d3-7.9.0.min.js" defer></script>
+  <script src="vendor/topojson-client-3.1.0.min.js" defer></script>
+  <script src="js/app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip" href="#view">Skip to content</a>
+  <header class="masthead">
+    <div class="masthead-title">
+      <h1>Global News Sentiment</h1>
+      <p id="caption" class="caption">Loading the outlet list.</p>
+    </div>
+    <button id="reload" class="button" type="button" disabled>Reload snapshot</button>
+  </header>
+  <section id="figures" class="figures" aria-label="Snapshot figures"></section>
+  <section id="alerts" class="alerts" aria-label="Alerts" hidden></section>
+  <nav class="views" aria-label="Views">
+    <a href="#/regions" data-view="regions">Regions</a>
+    <a href="#/topics" data-view="topics">Topics</a>
+    <a href="#/trends" data-view="trends">Trends</a>
+    <a href="#/headlines" data-view="headlines">Headlines</a>
+    <a href="#/stories" data-view="stories">Stories</a>
+    <a href="#/sources" data-view="sources">Sources</a>
+  </nav>
+  <main id="view" tabindex="-1"></main>
+  <footer class="footer">
+    <p>Headlines come from each outlet's public RSS feed and link to the original story. Scores are a model's reading of the headline text only.</p>
+  </footer>
+</body>
+</html>
