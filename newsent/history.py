@@ -2,9 +2,8 @@
 
 `newsent.collect` runs hourly in GitHub Actions and commits `trend.csv` (model
 index per region), `sources.csv` (model index per outlet), `gdelt.csv` (GDELT
-event tone per region) and `gdelt-countries.csv` (the country codes that
-`gdelt.csv` counted for each region) to the `history` branch, so the trends
-survive hosts whose disk is wiped on restart.
+event tone per region) and `gdelt-countries.csv` to the `history` branch, so
+the trends survive hosts whose disk is wiped on restart.
 """
 
 import csv
