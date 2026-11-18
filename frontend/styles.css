@@ -285,14 +285,87 @@ td.nowrap { white-space: nowrap; }
 }
 .field input:hover, .field select:hover { border-color: var(--ink); }
 
+.map-slot { min-height: 200px; }
+.map { position: relative; margin: 0 calc(-1 * var(--gutter) / 2); }
+.map svg { display: block; width: 100%; height: auto; overflow: hidden; }
+.map .graticule { fill: none; stroke: var(--rule); stroke-width: 0.5; opacity: 0.7; }
+.map .country { fill: var(--unscored); stroke: var(--sea); stroke-width: 0.6; cursor: pointer; }
+.map .country.inert { cursor: default; }
+.map .country.filling { transition: fill 700ms ease-out; }
+.map .country:not(.inert):hover { stroke: var(--ink); stroke-width: 1.2; }
+.map .country.is-selected { stroke: var(--ink); stroke-width: 2; }
+.map-focus { margin: 0; background: var(--wash); border-radius: var(--radius); }
+.map-focus .country { stroke-width: 0.8; }
+.map-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  line-height: 1.1;
+  pointer-events: none;
+  color: var(--ink);
+  text-shadow: 0 0 3px var(--sea), 0 0 3px var(--sea), 0 0 6px var(--sea);
+  white-space: nowrap;
+}
+.map-label span { font-size: var(--step-0); font-weight: 600; }
+.map-label strong { font-size: var(--step-3); font-weight: 750; font-variant-numeric: tabular-nums; }
+.map-tip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  min-width: 10rem;
+  padding: 8px 10px;
+  background: var(--land);
+  border: 1px solid var(--fog);
+  border-radius: var(--radius);
+  font-size: var(--step-0);
+  pointer-events: none;
+}
+.map-tip.flip { transform: translateX(-100%); }
+.map-tip span { color: var(--ink-2); }
+.map-tip[hidden] { display: none; }
+
+.map-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem); gap: 24px 48px; align-items: start; }
+.legend { margin: 0; }
+.legend-marks { position: relative; height: calc(var(--rows, 1) * 20px + 10px); }
+.legend-mark { position: absolute; left: var(--x); bottom: 0; height: calc(var(--row, 0) * 20px + 10px); border-left: 1px solid var(--ink); }
+.legend-text { position: absolute; z-index: 1; bottom: 100%; padding: 0 4px; margin-left: -4px; background: var(--sea); white-space: nowrap; font-size: var(--step--1); font-weight: 600; line-height: 20px; }
+.legend-mark.is-global { border-left-width: 3px; margin-left: -1px; }
+.legend-mark.is-global .legend-text { font-weight: 750; }
+.legend-bar { height: 12px; border-radius: 2px; }
+.legend-ticks { display: flex; justify-content: space-between; font-size: var(--step--1); color: var(--ink-2); margin-top: 4px; }
+.legend figcaption { margin-top: 8px; }
+.picker { display: grid; gap: 6px; }
+.picker input { width: 100%; }
+
+.readouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; margin-top: 40px; }
+.readout h3 { display: flex; align-items: center; gap: 8px; font-size: var(--step-1); }
+.swatch { width: 12px; height: 12px; border-radius: 2px; background: var(--unscored); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 25%, transparent); flex: none; }
+.readout-value { font-size: var(--step-5); font-weight: 750; letter-spacing: -0.02em; line-height: 1.05; margin-top: 4px; }
+.readout-delta { font-size: var(--step-0); font-weight: 600; margin-top: 2px; }
+.readout .caption { margin-top: 2px; }
+.tone { display: flex; height: 10px; margin-top: 12px; border-radius: 2px; overflow: hidden; background: var(--wash); }
+.tone span { background: var(--fog); }
+.tone span[data-label="negative"] { background: var(--gloom); }
+.tone span[data-label="positive"] { background: var(--glow); }
+.tone span + span { box-shadow: inset 1px 0 0 var(--sea); }
+.tone-text { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 6px; font-size: var(--step--1); color: var(--ink-2); }
+
 .footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); }
 .footer p { font-size: var(--step--1); color: var(--ink-2); max-width: var(--measure); }
+
+@media (max-width: 1000px) {
+  .map-foot { grid-template-columns: minmax(0, 1fr); }
+  .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 @media (max-width: 600px) {
   :root { --gutter: 16px; --step-4: 1.5rem; --step-6: 3rem; }
   .masthead { padding-top: 20px; }
   .figures dl { gap: 12px 24px; }
   .figure-lead { width: 100%; grid-template-columns: auto minmax(0, 1fr); }
+  .readouts { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .map-label { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
