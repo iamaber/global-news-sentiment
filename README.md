@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Streamlit dashboard that reads 20 news outlets across four regions, scores
+A Streamlit dashboard that reads 21 news outlets across four regions, scores
 every headline with a three-class sentiment model, and charts how each region's
 news tone moves over 7, 30, and 90 days. A FastAPI service exposes the same data
 as JSON.
@@ -61,7 +61,7 @@ map are still in the country picker.
 | --- | --- |
 | Americas | NPR, New York Times, CNBC, CBC News, Buenos Aires Times |
 | Europe | BBC News, The Guardian, Deutsche Welle, France 24, RTÉ News |
-| Asia-Pacific | South China Morning Post, Times of India, CNA, The Japan Times, ABC News Australia |
+| Asia-Pacific | South China Morning Post, Times of India, CNA, The Japan Times, ABC News Australia, Prothom Alo |
 | Middle East & Africa | Al Jazeera, The Times of Israel, AllAfrica, Daily Maverick, Nation |
 
 `newsent/regions.py` is the single registry for regions, feeds, and the
@@ -96,7 +96,7 @@ Romanian actors, so Romania's events are not counted.
 
 ## Performance
 
-- All 20 feeds are fetched concurrently under one 15 s deadline.
+- All 21 feeds are fetched concurrently under one 15 s deadline.
 - Scores are cached in SQLite by headline. A refresh scores only headlines it
   has not seen, so a typical refresh after the first one runs the model on a
   handful of headlines.

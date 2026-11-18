@@ -174,6 +174,7 @@ REGIONS: tuple[Region, ...] = (
                 "https://www.abc.net.au/news/feed/2942460/rss.xml",
                 "Australia",
             ),
+            Feed("Prothom Alo", "https://en.prothomalo.com/stories.rss", "Bangladesh"),
         ),
         source_countries=(
             Country("India", "IND"),
