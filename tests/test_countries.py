@@ -45,6 +45,7 @@ def test_countries_are_unique_by_iso3_and_name():
     [
         ("USA", "americas", {"NPR", "New York Times", "CNBC"}),
         ("HKG", "asia_pacific", {"South China Morning Post"}),
+        ("BGD", "asia_pacific", {"Prothom Alo"}),
         ("MEX", "americas", set()),
         ("GRL", "americas", set()),
         ("GEO", "europe", set()),
