@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --no-dev
 
-      - name: Collect and score headlines
+      - name: Collect headlines and GDELT tone
         run: uv run python -m newsent.collect history-data
 
       - name: Commit and push

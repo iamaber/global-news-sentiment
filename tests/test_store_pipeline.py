@@ -1,16 +1,10 @@
-import http.client
-import io
-import json
-import urllib.error
-import urllib.request
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
-from newsent import gdelt
 from newsent.feeds import Headline, headline_id
 from newsent.pipeline import Scored, summarize, take_snapshot
-from newsent.regions import REGIONS, REGIONS_BY_KEY
+from newsent.regions import REGIONS_BY_KEY
 from newsent.scores import Scores
 from newsent.store import RETENTION_DAYS, Store
 
@@ -128,93 +122,3 @@ def test_summarize_reports_every_region_with_shares():
     empty = summaries["asia_pacific"]
     assert (empty.headlines, empty.net) == (0, 0.0)
     assert set(empty.shares.values()) == {0.0}
-
-
-def test_parse_timeline_reads_daily_tone():
-    payload = json.dumps(
-        {
-            "timeline": [
-                {
-                    "series": "Average Tone",
-                    "data": [
-                        {"date": "20261115T000000Z", "value": -1.25},
-                        {"date": "20261116T000000Z", "value": 0.5},
-                    ],
-                }
-            ]
-        }
-    )
-
-    assert gdelt.parse_timeline(payload) == {
-        date(2026, 11, 15): -1.25,
-        date(2026, 11, 16): 0.5,
-    }
-
-
-@pytest.mark.parametrize("payload", ["{}", '{"timeline": [{"data": []}]}'])
-def test_parse_timeline_raises_when_gdelt_has_no_data(payload):
-    with pytest.raises(gdelt.GdeltError, match="no data"):
-        gdelt.parse_timeline(payload)
-
-
-def test_parse_timeline_raises_on_rate_limit_body():
-    with pytest.raises(gdelt.GdeltError, match="Please limit"):
-        gdelt.parse_timeline("Please limit requests to one every 5 seconds.")
-
-
-def http_429(request, timeout):
-    raise urllib.error.HTTPError(
-        request.full_url, 429, "Too Many Requests", http.client.HTTPMessage(), None
-    )
-
-
-@pytest.mark.parametrize(
-    "urlopen",
-    [
-        lambda request, timeout: io.BytesIO(
-            b"Please limit requests to one every 5 seconds."
-        ),
-        http_429,
-    ],
-    ids=["throttle-body", "http-429"],
-)
-def test_fetch_region_tone_flags_rate_limit_and_backs_off(monkeypatch, urlopen):
-    monkeypatch.setattr(gdelt, "MIN_INTERVAL_SECONDS", 0)
-    calls = []
-    monkeypatch.setattr(
-        urllib.request,
-        "urlopen",
-        lambda request, timeout: calls.append(1) or urlopen(request, timeout),
-    )
-
-    for _ in range(2):
-        with pytest.raises(gdelt.GdeltRateLimited):
-            gdelt.fetch_region_tone(REGIONS[0])
-
-    assert len(calls) == 1
-
-
-def test_refresh_fetches_only_stale_regions_and_keeps_going_on_errors(isolated_db):
-    store = Store(isolated_db)
-    now = datetime.now(UTC)
-    americas, europe, asia, mea = REGIONS
-    store.save_gdelt(americas.key, {now.date(): 9.0}, now)
-    store.save_gdelt(europe.key, {}, now - timedelta(hours=7))
-    fetched = []
-
-    def fetch(region):
-        fetched.append(region.key)
-        if region is asia:
-            raise gdelt.GdeltError("GDELT returned no data")
-        return {now.date(): 1.5}
-
-    errors = gdelt.refresh(store, REGIONS, fetch=fetch)
-
-    assert fetched == [europe.key, asia.key, mea.key]
-    assert errors == {asia.key: "GDELT returned no data"}
-    assert [(p.region, p.value) for p in store.gdelt_trend(1)] == [
-        (americas.key, 9.0),
-        (europe.key, 1.5),
-        (mea.key, 1.5),
-    ]
-    assert gdelt.stale_regions(store, REGIONS, now) == [asia]

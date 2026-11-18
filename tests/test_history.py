@@ -1,8 +1,8 @@
 import json
 from datetime import UTC, date, datetime, timedelta
 
-from newsent import history
-from newsent.collect import collect
+from newsent import gdelt, history
+from newsent.collect import collect, collect_gdelt
 from newsent.feeds import FeedStatus, Headline, headline_id
 from newsent.scores import Scores
 from newsent.store import COLUMNS, RETENTION_DAYS, DailyPoint, SourceDay, Store
@@ -232,3 +232,124 @@ def test_cached_loader_remembers_failures_until_the_period_ends(monkeypatch):
         pass
 
     assert len(calls) == 2
+
+
+TODAY = date(2026, 11, 18)
+
+
+def europe_tone(day):
+    return [DailyPoint(day, "europe", -2.0, 100)]
+
+
+def days_ago(*offsets):
+    return [TODAY - timedelta(days=n) for n in offsets]
+
+
+def test_collect_gdelt_fills_missing_days_newest_first_up_to_the_cap(tmp_path):
+    collected = DailyPoint(TODAY - timedelta(days=1), "mea", -0.5, 9)
+    expired = DailyPoint(TODAY - timedelta(days=91), "mea", 1.0, 9)
+    (tmp_path / "gdelt.csv").write_text(history.format_gdelt([expired, collected]))
+    requested = []
+
+    added = collect_gdelt(
+        tmp_path, TODAY, lambda day: requested.append(day) or europe_tone(day)
+    )
+
+    assert requested == added == days_ago(*range(2, 17))
+    assert history.parse_gdelt((tmp_path / "gdelt.csv").read_text()) == [
+        *(DailyPoint(day, "europe", -2.0, 100) for day in days_ago(*range(16, 1, -1))),
+        collected,
+    ]
+
+
+def test_collect_gdelt_backfills_90_days_then_fetches_one_day_per_day(tmp_path):
+    requested = []
+
+    def fetch(day):
+        requested.append(day)
+        return europe_tone(day)
+
+    runs = 0
+    while collect_gdelt(tmp_path, TODAY, fetch):
+        runs += 1
+
+    assert runs == 6
+    assert sorted(requested) == days_ago(*range(90, 0, -1))
+    requested.clear()
+    assert collect_gdelt(tmp_path, TODAY + timedelta(days=1), fetch) == [TODAY]
+    assert requested == [TODAY]
+
+
+def test_collect_gdelt_skips_an_unpublished_day_and_retries_it_next_run(tmp_path):
+    yesterday = TODAY - timedelta(days=1)
+
+    def fetch(day):
+        if day == yesterday:
+            raise gdelt.DayNotPublished(day)
+        return europe_tone(day)
+
+    assert collect_gdelt(tmp_path, TODAY, fetch) == days_ago(*range(2, 16))
+    assert collect_gdelt(tmp_path, TODAY, europe_tone)[0] == yesterday
+
+
+def test_collect_gdelt_failure_keeps_earlier_tone_and_does_not_raise(tmp_path, capsys):
+    collect(
+        tmp_path,
+        score=FakeModel({"A": POSITIVE}),
+        fetch=lambda: ([headline("A")], STATUSES),
+    )
+    trend = (tmp_path / "trend.csv").read_text()
+    (tmp_path / "gdelt.csv").write_text("not a gdelt file\n")
+
+    def fetch(day):
+        if day == TODAY - timedelta(days=2):
+            raise RuntimeError("connection reset")
+        return europe_tone(day)
+
+    assert collect_gdelt(tmp_path, TODAY, fetch) == days_ago(1)
+    assert history.parse_gdelt((tmp_path / "gdelt.csv").read_text()) == europe_tone(
+        TODAY - timedelta(days=1)
+    )
+    assert (tmp_path / "trend.csv").read_text() == trend
+    assert "connection reset" in capsys.readouterr().err
+
+
+def test_gdelt_trend_reads_the_collectors_gdelt_csv_next_to_trend_csv(
+    tmp_path, monkeypatch
+):
+    collect_gdelt(tmp_path, TODAY, europe_tone)
+    monkeypatch.setattr(history, "HISTORY_SOURCE", str(tmp_path / "trend.csv"))
+
+    points, origin = history.gdelt_trend(7, until=TODAY)
+
+    assert points == [p for day in days_ago(6, 5, 4, 3, 2, 1) for p in europe_tone(day)]
+    assert origin == f"collected history from {tmp_path / 'gdelt.csv'}"
+
+
+def test_gdelt_trend_loads_from_github_and_explains_an_empty_chart(monkeypatch):
+    monkeypatch.setattr(history, "HISTORY_SOURCE", history.DEFAULT_SOURCE)
+    sources = []
+
+    def unreachable(source):
+        raise OSError("network is unreachable")
+
+    points, origin = history.gdelt_trend(
+        7, until=TODAY, load=lambda source: sources.append(source) or europe_tone(TODAY)
+    )
+
+    assert sources == [
+        "https://raw.githubusercontent.com/iamaber/realtime-news-sentiment/history/gdelt.csv"
+    ]
+    assert (points, origin) == (
+        europe_tone(TODAY),
+        "collected hourly by GitHub Actions",
+    )
+    assert history.gdelt_trend(7, until=TODAY, load=unreachable) == (
+        [],
+        "collected GDELT history unavailable: network is unreachable",
+    )
+    monkeypatch.setattr(history, "HISTORY_SOURCE", "")
+    assert history.gdelt_trend(7, until=TODAY, load=unreachable) == (
+        [],
+        "collected history is turned off (NEWS_HISTORY is empty)",
+    )

@@ -4,20 +4,18 @@ pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
 import collections
-import json
 import os
 import subprocess
 import sys
 import threading
 import time
-import urllib.parse
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from backend import api as api_module
-from newsent import gdelt, history
+from newsent import history
 from newsent.feeds import FeedStatus, Headline, headline_id
 from newsent.regions import REGIONS
 from newsent.scores import Scores
@@ -269,40 +267,36 @@ def test_trends_reads_collected_history_from_a_local_file(
     ]
 
 
-def test_trends_gdelt_refreshes_stale_regions_and_reports_errors(client, monkeypatch):
+def test_trends_gdelt_serves_the_collected_tone_next_to_trend_csv(
+    client, monkeypatch, tmp_path
+):
     today = datetime.now(UTC).date()
     yesterday = today - timedelta(days=1)
-    timeline = json.dumps(
-        {
-            "timeline": [
-                {
-                    "data": [
-                        {"date": yesterday.strftime("%Y%m%dT000000Z"), "value": -1.5},
-                        {"date": today.strftime("%Y%m%dT000000Z"), "value": 0.25},
-                    ]
-                }
+    (tmp_path / "gdelt.csv").write_text(
+        history.format_gdelt(
+            [
+                DailyPoint(today - timedelta(days=30), "mea", -1.98, 31000),
+                DailyPoint(yesterday, "europe", -2.4321, 88000),
             ]
-        }
+        )
     )
-
-    def fake_get(url):
-        if "sourcecountry:qatar" in urllib.parse.unquote_plus(url):
-            raise OSError("unreachable")
-        return timeline
-
-    monkeypatch.setattr(gdelt, "MIN_INTERVAL_SECONDS", 0)
-    monkeypatch.setattr(gdelt, "_get", fake_get)
+    monkeypatch.setattr(history, "HISTORY_SOURCE", str(tmp_path / "trend.csv"))
 
     response = client.get("/trends", params={"source": "gdelt", "days": 7})
 
     assert response.status_code == 200
-    body = response.json()
-    assert (body["source"], body["days"]) == ("gdelt", 7)
-    assert body["errors"] == {"mea": "unreachable"}
-    assert {(p["day"], p["region"], p["value"]) for p in body["points"]} == {
-        (day.isoformat(), region, value)
-        for region in ("americas", "europe", "asia_pacific")
-        for day, value in ((yesterday, -1.5), (today, 0.25))
+    assert response.json() == {
+        "source": "gdelt",
+        "days": 7,
+        "origin": f"collected history from {tmp_path / 'gdelt.csv'}",
+        "points": [
+            {
+                "day": yesterday.isoformat(),
+                "region": "europe",
+                "value": -2.4321,
+                "articles": 88000,
+            }
+        ],
     }
 
 
