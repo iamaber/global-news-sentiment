@@ -17,7 +17,7 @@ TIMEOUT_SECONDS = 10
 TOTAL_TIMEOUT_SECONDS = 15
 MAX_FEED_BYTES = 2_000_000
 # CBC's firewall drops requests whose User-Agent contains a URL.
-USER_AGENT = "realtime-news-sentiment/0.3"
+USER_AGENT = "global-news-sentiment/0.3"
 
 ALLOWED_FEED_HOSTS = frozenset(
     urllib.parse.urlsplit(feed.url).hostname for _, feed in ALL_FEEDS

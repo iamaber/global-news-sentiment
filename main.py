@@ -9,7 +9,7 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Real-time News Sentiment Analysis")
+    parser = argparse.ArgumentParser(description="Global News Sentiment")
     parser.add_argument(
         "--host",
         default=DEFAULT_HOST,

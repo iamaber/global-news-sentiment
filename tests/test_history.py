@@ -156,7 +156,7 @@ def test_source_trend_uses_collected_points_inside_the_window(isolated_db, monke
     )
 
     assert sources == [
-        "https://raw.githubusercontent.com/iamaber/realtime-news-sentiment/history/sources.csv"
+        "https://raw.githubusercontent.com/iamaber/global-news-sentiment/history/sources.csv"
     ]
     assert points == collected[1:3]
     assert origin == "collected hourly by GitHub Actions"
@@ -372,7 +372,7 @@ def test_gdelt_trend_loads_from_github_and_explains_an_empty_chart(monkeypatch):
     )
 
     assert sources == [
-        "https://raw.githubusercontent.com/iamaber/realtime-news-sentiment/history/gdelt.csv"
+        "https://raw.githubusercontent.com/iamaber/global-news-sentiment/history/gdelt.csv"
     ]
     assert (points, origin) == (
         europe_tone(TODAY),

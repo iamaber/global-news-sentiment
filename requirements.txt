@@ -65,11 +65,11 @@ colorama==0.4.6 ; sys_platform == 'win32' \
 fastapi==0.116.1 \
     --hash=sha256:c46ac7c312df840f0c9e220f7964bada936781bc4e2e6eb71f1c4d7553786565 \
     --hash=sha256:ed52cbf946abfd70c5a0dccb24673f0670deeb517a88b3544d03c2a6bf283143
-    # via realtime-news-sentiment
+    # via global-news-sentiment
 feedparser==6.0.11 \
     --hash=sha256:0be7ee7b395572b19ebeb1d6aafb0028dee11169f1c934e0ed67d54992f4ad45 \
     --hash=sha256:c9d0407b64c6f2a065d0ebb292c2b35c01050cc0dc33757461aaabdc4c4184d5
-    # via realtime-news-sentiment
+    # via global-news-sentiment
 filelock==3.18.0 \
     --hash=sha256:adbc88eabb99d2fec8c9c1b229b171f18afa655400173ddc653d5d01501fb9f2 \
     --hash=sha256:c401f4f8377c4464e6db25fff06205fd89bdd83b65eb0488ed1b160f780e21de
@@ -356,7 +356,7 @@ torch==2.7.1 ; sys_platform != 'linux' \
     --hash=sha256:79042feca1c634aaf6603fe6feea8c6b30dfa140a6bbc0b973e2260c7e79a22e \
     --hash=sha256:988b0cbc4333618a1056d2ebad9eb10089637b659eb645434d0809d8d937b946 \
     --hash=sha256:d8bf6e1856ddd1807e79dc57e54d3335f2b62e6f316ed13ed3ecfe1fc1df3d8b
-    # via realtime-news-sentiment
+    # via global-news-sentiment
 torch==2.7.1+cpu ; sys_platform == 'linux' \
     --hash=sha256:355614185a2aea7155f9c88a20bfd49de5f3063866f3cf9b2f21b6e9e59e31e0 \
     --hash=sha256:3bf2db5adf77b433844f080887ade049c4705ddf9fe1a32023ff84ff735aa5ad \
@@ -364,7 +364,7 @@ torch==2.7.1+cpu ; sys_platform == 'linux' \
     --hash=sha256:84ea1f6a1d15663037d01b121d6e33bb9da3c90af8e069e5072c30f413455a57 \
     --hash=sha256:8f8b3cfc53010a4b4a3c7ecb88c212e9decc4f5eeb6af75c3c803937d2d60947 \
     --hash=sha256:eb17646792ac4374ffc87e42369f45d21eff17c790868963b90483ef0b6db4ef
-    # via realtime-news-sentiment
+    # via global-news-sentiment
 tqdm==4.67.1 \
     --hash=sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2 \
     --hash=sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2
@@ -374,7 +374,7 @@ tqdm==4.67.1 \
 transformers==4.53.3 \
     --hash=sha256:5aba81c92095806b6baf12df35d756cf23b66c356975fb2a7fa9e536138d7c75 \
     --hash=sha256:b2eda1a261de79b78b97f7888fe2005fc0c3fabf5dad33d52cc02983f9f675d8
-    # via realtime-news-sentiment
+    # via global-news-sentiment
 typing-extensions==4.14.1 \
     --hash=sha256:38b39f4aeeab64884ce9f74c94263ef78f3c22467c8724005483154c26648d36 \
     --hash=sha256:d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76
@@ -398,4 +398,4 @@ urllib3==2.5.0 \
 uvicorn==0.35.0 \
     --hash=sha256:197535216b25ff9b785e29a0b79199f55222193d47f820816e7da751e9bc8d4a \
     --hash=sha256:bc662f087f7cf2ce11a1d7fd70b90c9f98ef2e2831556dd078d131b96cc94a01
-    # via realtime-news-sentiment
+    # via global-news-sentiment
