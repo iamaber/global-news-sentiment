@@ -2,25 +2,25 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Streamlit dashboard that reads 21 news outlets across four regions, scores
-every headline with a three-class sentiment model, and charts how each region's
-news tone moves over 7, 30, and 90 days. A FastAPI service exposes the same data
-as JSON.
+A web dashboard that reads 21 news outlets across four regions, scores every
+headline with a three-class sentiment model, and charts how each region's news
+tone moves over 7, 30, and 90 days. One FastAPI app serves the page and the
+JSON it reads.
 
 - Live demo: <https://huggingface.co/spaces/iamaber/Real-time-News-Sentiment-Analysis>
 - GitHub: <https://github.com/iamaber/realtime-news-sentiment>
 
 ## What the dashboard shows
 
-- **Alerts.** A warning above the tabs for each region whose index today sits
+- **Alerts.** A warning above the views for each region whose index today sits
   more than two standard deviations from its mean over the previous seven
   days. A region needs at least five of those days, with some variation, before
   it can be judged.
 - **Regions.** A sentiment index per region with its change against the
   previous seven days, a world map coloured by region, and the share of
   negative, neutral, and positive headlines.
-- **Countries.** Click a country on the Regions map, or pick one from the list
-  under it, to open its page. It lists the outlets based there with their
+- **Countries.** Click a country on the Regions map, or search for one in the
+  picker under it, to open its page. It lists the outlets based there with their
   current headline count and mean index, the country's daily index, and its
   current headlines. A country with no outlet of its own shows its region's
   figures. Every country except Antarctica is listed. Countries too small to
@@ -101,7 +101,7 @@ Romanian actors, so Romania's events are not counted.
   has not seen, so a typical refresh after the first one runs the model on a
   handful of headlines.
 - Headlines are truncated to 64 tokens and scored in batches of 32.
-- The dashboard and the API reuse one snapshot for five minutes.
+- The API builds one snapshot and serves it to every visitor for five minutes.
 
 ## Quick start
 
@@ -111,7 +111,7 @@ With [uv](https://docs.astral.sh/uv/):
 git clone https://github.com/iamaber/realtime-news-sentiment.git
 cd realtime-news-sentiment
 uv sync
-uv run streamlit run app.py
+uv run python main.py
 ```
 
 Or with pip:
@@ -120,48 +120,55 @@ Or with pip:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+python main.py
 ```
 
-Open <http://localhost:8501>. The first load downloads the model, about 500 MB,
-and keeps it for the life of the process.
+Open <http://localhost:8501>, the same port the Space uses. The first load
+downloads the model, about 500 MB, and keeps it for the life of the process.
+
+## Web frontend
+
+`frontend/` is plain HTML, CSS, and JavaScript ES modules with no build step.
+FastAPI serves it at `/` after the API routes. Third-party files are committed
+under `frontend/vendor/` with their version in the file name. The page calls
+only its own origin, plus the story links a reader opens. Every view keeps its
+state in the URL hash, so a view or a country page can be bookmarked and the
+back button returns to the previous one.
 
 ## API
 
-```bash
-uv sync --extra api
-uv run python main.py --mode backend
-```
+JSON lives under `/api/`. Index values run from −100 to +100 and are rounded to
+one decimal.
 
 | Endpoint | Returns |
 | --- | --- |
-| `GET /headlines` | Scored headlines with label, class probabilities, index, and per-feed status |
-| `GET /regions` | Per-region headline count, index, and label shares |
-| `GET /trends?days=30&source=model` | Daily per-region index (`days` 1–90), plus `origin`, where the series came from |
-| `GET /trends?days=30&source=gdelt` | Daily per-region GDELT event tone and article count from the collected `gdelt.csv`, plus `origin`, where the series came from or why it is empty |
+| `GET /api/registry` | Regions with their outlets and countries, topics with their keywords, the model and its revision, the trend windows, and the baseline length. Cached by browsers for an hour |
+| `GET /api/snapshot` | Scored headlines with label, class probabilities, index, and topics, per-feed status, per-region index, label shares, and seven-day baseline, alerts, and stories covered by two or more regions. 503 when no feed responded, with the feed statuses |
+| `GET /api/trends?days=30&source=model` | Daily per-region index (`days` 1 to 90), plus `origin`, where the series came from |
+| `GET /api/trends?days=30&source=gdelt` | Daily per-region GDELT event tone and article count from the collected `gdelt.csv`, plus `origin`, where the series came from or why it is empty |
+| `GET /api/countries/{iso3}?days=30` | A country's outlets and their daily index. A country with no outlet of its own gets its region's outlets and `fallback: true`. 404 for an unknown code |
 | `GET /ready` | 503 until the model is loaded |
 | `GET /health` | Liveness |
 
-Interactive docs are at <http://localhost:8000/docs>. `main.py --mode all`
-starts the API and the dashboard together.
+Interactive docs are at <http://localhost:8501/docs>.
 
-Both processes bind to `127.0.0.1` by default. The API has no authentication,
-so it limits each client to 10 requests per minute and allows two concurrent
-scoring requests. Pass `--host 0.0.0.0` only behind an authenticating proxy.
+The app binds to `127.0.0.1` by default. The API has no authentication, so it
+limits each client to 60 requests per minute under `/api/` and builds at most
+two snapshots at once. The page, `/health`, and `/ready` are not limited. Pass
+`--host 0.0.0.0` only behind an authenticating proxy.
 
 ## Project structure
 
 ```
 .
-├── app.py                 # Streamlit entry point: header and tab registry
-├── dashboard/
-│   ├── data.py            # Snapshot view, cached store, chart helpers
-│   ├── regions.py         # Regions tab
-│   ├── trends.py          # Trends tab
-│   ├── headlines.py       # Headlines tab
-│   └── sources.py         # Sources tab
+├── frontend/              # The web page: index.html, styles.css, js/, vendor/, data/
+├── backend/api.py         # FastAPI app: JSON under /api, the page at /
 ├── newsent/
 │   ├── regions.py         # Regions, outlets, and countries (single registry)
+│   ├── countries.py       # Outlets per country and a country's daily index
+│   ├── topics.py          # Keyword topics per headline
+│   ├── stories.py         # Groups headlines about one story across regions
+│   ├── alerts.py          # Flags regions far from their seven-day mean
 │   ├── feeds.py           # Bounded, concurrent RSS fetching
 │   ├── scores.py          # Class probabilities, label, and sentiment index
 │   ├── model.py           # Pinned RoBERTa model and batched scoring
@@ -171,8 +178,7 @@ scoring requests. Pass `--host 0.0.0.0` only behind an authenticating proxy.
 │   ├── collect.py         # Hourly collector that writes the history branch
 │   └── history.py         # Reads collected history, falls back to the store
 ├── .github/workflows/     # CI and the hourly collector
-├── backend/api.py         # FastAPI service
-├── main.py                # Runs the API, the dashboard, or both
+├── main.py                # Runs the app with uvicorn on port 8501
 └── tests/
 ```
 
@@ -190,7 +196,7 @@ The database keeps 120 days of headlines. Delete the file to start over.
 
 ## Collected history
 
-A Space's disk is wiped on restart, so the dashboard cannot build a long trend
+A Space's disk is wiped on restart, so the app cannot build a long trend
 on its own. `.github/workflows/collect.yml` runs `python -m newsent.collect` at
 17 minutes past every hour. Each run fetches every feed, scores only headlines
 it has not seen before, and commits five things to the `history` branch:
@@ -212,17 +218,17 @@ A new history branch fills its 90 days in six runs. After that, a run
 downloads at most one file, yesterday's. GDELT publishes that file early in
 the UTC day, so a run that gets a 404 skips the day and the next run tries
 again. Any other GDELT error is logged and does not stop the headline
-collection. The dashboard and the API never call GDELT themselves.
+collection. The app never calls GDELT itself.
 
 When the country-to-region mapping changes, `gdelt-countries.csv` no longer
 matches it. The next run discards `gdelt.csv` and refills it newest first, so
 the GDELT trend is rebuilt under the new mapping over about six runs.
 
-The dashboard and the API read the CSV files from `raw.githubusercontent.com`
-and keep the result, or the error, for 15 minutes. A fork that enables the
-workflow publishes its own history. Point `NEWS_HISTORY` at the fork's raw
-URL. To collect without GitHub, run the collector from cron and set
-`NEWS_HISTORY` to `<dir>/trend.csv`:
+The API reads the CSV files from `raw.githubusercontent.com` and keeps the
+result, or the error, for 15 minutes. A fork that enables the workflow
+publishes its own history. Point `NEWS_HISTORY` at the fork's raw URL. To
+collect without GitHub, run the collector from cron and set `NEWS_HISTORY` to
+`<dir>/trend.csv`:
 
 ```bash
 uv run python -m newsent.collect /var/lib/newsent-history
@@ -231,22 +237,22 @@ uv run python -m newsent.collect /var/lib/newsent-history
 ## Tests
 
 ```bash
-uv sync --extra dev --extra api
+uv sync --extra dev
 uv run pytest -q
 ```
 
 The tests cover feed parsing and deduplication, URL and redirect validation,
 the score cache, trend aggregation, the collector and its fallback, GDELT event
-file parsing and day selection, and every API route. None of them download the
-model or touch the network. CI runs the same commands on every push to `main`
-and on every pull request.
+file parsing and day selection, every API route and its rate limit, and the
+page served at `/`. None of them download the model or touch the network. CI
+runs the same commands on every push to `main` and on every pull request.
 
 ## Deploying to Hugging Face Spaces
 
-The Space is a Docker Space built from `Dockerfile`, which runs `app.py` with
-Streamlit on Python 3.12 and port 8501. It is not a Streamlit SDK Space because
-that SDK installs `requirements.txt` together with unhashed packages of its own
-in one `pip` command, and `--require-hashes` then rejects the whole install.
+The Space is a Docker Space built from `Dockerfile`. It installs the hashed
+`requirements.txt` and runs `uvicorn backend.api:app` on Python 3.12 and port
+8501. Uvicorn runs with `--proxy-headers`, so the rate limiter counts each
+visitor's address and not that of Hugging Face's proxy.
 
 Every push to `main` deploys itself. After the tests pass, the `deploy-space`
 job in `.github/workflows/ci.yml` uploads the app to the Space with the
@@ -271,8 +277,7 @@ uv export --format requirements-txt --no-dev --no-emit-project --offline \
 Add `--require-hashes` below the index lines after regenerating. uv emits the
 PyTorch CPU index globally because a requirements file cannot scope an index to
 one package. The hashes still make the install integrity-safe, because every
-package must match its locked hash. `requirements-api.txt` is the same export
-with the `api` extra.
+package must match its locked hash.
 
 The CPU index exists only for the Linux `torch==2.7.1+cpu` wheel. The default
 PyPI wheel on Linux pulls about 3 GB of CUDA packages that a CPU-only Space
@@ -281,8 +286,8 @@ cannot use.
 ## Troubleshooting
 
 **No headlines are shown.** The app needs outbound HTTPS access to the feeds
-listed on the **Sources** tab. If every feed fails, the app shows an error and
-the feed statuses.
+listed in the **Sources** view. If every feed fails, the page shows an error
+and the feed statuses.
 
 **The GDELT chart is empty.** The caption under the message names the reason.
 The app reads GDELT tone only from the collected `gdelt.csv` and never calls
