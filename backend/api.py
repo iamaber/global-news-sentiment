@@ -10,11 +10,11 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from newsent import gdelt, history
+from newsent import history
 from newsent.feeds import fetch_headlines
 from newsent.model import get_pipeline, is_loaded, score
 from newsent.pipeline import Snapshot, summarize, take_snapshot
-from newsent.regions import REGIONS, REGIONS_BY_KEY
+from newsent.regions import REGIONS_BY_KEY
 from newsent.scores import LABELS
 from newsent.store import Store
 
@@ -34,7 +34,6 @@ _inference_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 _snapshot_lock = threading.Lock()
 _snapshot: tuple[float, Snapshot] | None = None
-_gdelt_lock = threading.Lock()
 
 
 def warm_up_model() -> None:
@@ -200,10 +199,9 @@ def get_trends(
     source: Literal["model", "gdelt"] = "model",
 ):
     """Daily per-region series: our model's index, or GDELT's tone."""
-    store = get_store()
     if source == "model":
         with _hide_internal_errors():
-            points, origin = history.model_trend(store, days)
+            points, origin = history.model_trend(get_store(), days)
         return {
             "source": source,
             "days": days,
@@ -219,23 +217,20 @@ def get_trends(
             ],
         }
 
-    with _hide_internal_errors():
-        with _gdelt_lock:
-            errors = gdelt.refresh(store, REGIONS)
-        points = store.gdelt_trend(days)
+    points, origin = history.gdelt_trend(days)
     return {
         "source": source,
         "days": days,
+        "origin": origin,
         "points": [
             {
                 "day": p.day.isoformat(),
                 "region": p.region,
                 "value": p.value,
-                "headlines": p.headlines,
+                "articles": p.headlines,
             }
             for p in points
         ],
-        "errors": errors,
     }
 
 

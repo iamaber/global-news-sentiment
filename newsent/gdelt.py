@@ -1,130 +1,89 @@
-"""GDELT's tone is its own lexicon score (roughly -10..+10, usually -5..+2), not
-our model's output. GDELT throttles clients to one request every five seconds.
+"""Daily GDELT tone per region, from GDELT's daily event files.
+
+Each event row carries the mean tone of the articles that reported it, GDELT's
+own lexicon score (roughly -10..+10, usually -5..+2), not our model's output.
+A region's tone for a day is the article-weighted mean over the events whose
+main actor (Actor1) is from one of the region's countries.
 """
 
-import json
-import threading
-import time
+import io
+import tempfile
 import urllib.error
-import urllib.parse
 import urllib.request
-from collections.abc import Callable, Iterable
-from datetime import UTC, date, datetime, timedelta
+import zipfile
+from datetime import date
+from typing import BinaryIO
 
-from newsent.regions import Region
-from newsent.store import Store
+from newsent.feeds import USER_AGENT
+from newsent.history import https_opener
+from newsent.regions import REGIONS
+from newsent.store import DailyPoint
 
-API_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
-HISTORY_DAYS = 90
-REFRESH_AFTER = timedelta(hours=6)
-MIN_INTERVAL_SECONDS = 6.0
-RATE_LIMIT_COOLDOWN_SECONDS = 300.0
-TIMEOUT_SECONDS = 45
-RATE_LIMIT_MESSAGE = "GDELT rate limit reached; try again later"
-USER_AGENT = (
-    "realtime-news-sentiment/0.3 (+https://github.com/iamaber/realtime-news-sentiment)"
-)
-
-_lock = threading.Lock()
-_last_request = 0.0
-_blocked_until = 0.0
-
-type RegionErrors = dict[str, str]
+EVENTS_URL = "https://data.gdeltproject.org/events/{day:%Y%m%d}.export.CSV.zip"
+MAX_ZIP_BYTES = 50_000_000
+CHUNK_BYTES = 1 << 16
+TIMEOUT_SECONDS = 60
+ACTOR1_COUNTRY = 7
+NUM_ARTICLES = 33
+AVG_TONE = 34
+REGION_BY_COUNTRY = {
+    country.iso3: region.key
+    for region in REGIONS
+    for country in region.source_countries
+}
 
 
-class GdeltError(RuntimeError):
+class DayNotPublished(LookupError):
     pass
 
 
-class GdeltRateLimited(GdeltError):
-    pass
+def fetch_day(day: date) -> list[DailyPoint]:
+    with tempfile.TemporaryFile() as file:
+        _download(EVENTS_URL.format(day=day), file)
+        file.seek(0)
+        return read_events(day, file)
 
 
-def region_query(region: Region) -> str:
-    terms = " OR ".join(f"sourcecountry:{c.gdelt}" for c in region.source_countries)
-    return f"({terms})"
-
-
-def parse_timeline(payload: str) -> dict[date, float]:
-    try:
-        data = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise GdeltError(payload.strip()[:200] or "empty response") from exc
-    series = data.get("timeline") or []
-    points = series[0].get("data", []) if series else []
-    if not points:
-        raise GdeltError("GDELT returned no data")
-    return {
-        datetime.strptime(point["date"][:8], "%Y%m%d").date(): float(point["value"])
-        for point in points
-    }
-
-
-def _get(url: str) -> str:
+def _download(url: str, file: BinaryIO) -> None:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            payload = response.read(1_000_000).decode("utf-8", "replace")
+        response = https_opener.open(request, timeout=TIMEOUT_SECONDS)
     except urllib.error.HTTPError as exc:
-        if exc.code == 429:
-            raise GdeltRateLimited(RATE_LIMIT_MESSAGE) from exc
+        if exc.code == 404:
+            raise DayNotPublished(url) from exc
         raise
-    if payload.startswith("Please limit requests"):
-        raise GdeltRateLimited(RATE_LIMIT_MESSAGE)
-    return payload
+    with response:
+        size = 0
+        while chunk := response.read(CHUNK_BYTES):
+            size += len(chunk)
+            if size > MAX_ZIP_BYTES:
+                raise ValueError(f"{url} is larger than {MAX_ZIP_BYTES} bytes")
+            file.write(chunk)
 
 
-def fetch_region_tone(region: Region) -> dict[date, float]:
-    global _last_request, _blocked_until
-    url = (
-        API_URL
-        + "?"
-        + urllib.parse.urlencode(
-            {
-                "query": region_query(region),
-                "mode": "timelinetone",
-                "timespan": f"{HISTORY_DAYS}d",
-                "format": "json",
-            }
-        )
-    )
-    with _lock:
-        if time.monotonic() < _blocked_until:
-            raise GdeltRateLimited(RATE_LIMIT_MESSAGE)
-        wait_for = MIN_INTERVAL_SECONDS - (time.monotonic() - _last_request)
-        if wait_for > 0:
-            time.sleep(wait_for)
-        try:
-            payload = _get(url)
-        except GdeltRateLimited:
-            _blocked_until = time.monotonic() + RATE_LIMIT_COOLDOWN_SECONDS
-            raise
-        finally:
-            _last_request = time.monotonic()
-    return parse_timeline(payload)
-
-
-def stale_regions(
-    store: Store, regions: Iterable[Region], now: datetime
-) -> list[Region]:
-    stale = []
-    for region in regions:
-        fetched_at = store.gdelt_fetched_at(region.key)
-        if fetched_at is None or now - fetched_at >= REFRESH_AFTER:
-            stale.append(region)
-    return stale
-
-
-def refresh(
-    store: Store,
-    regions: Iterable[Region],
-    fetch: Callable[[Region], dict[date, float]] = fetch_region_tone,
-) -> RegionErrors:
-    errors: RegionErrors = {}
-    now = datetime.now(UTC)
-    for region in stale_regions(store, regions, now):
-        try:
-            store.save_gdelt(region.key, fetch(region), now)
-        except Exception as exc:
-            errors[region.key] = str(exc)
-    return errors
+def read_events(day: date, file: BinaryIO) -> list[DailyPoint]:
+    weighted: dict[str, float] = {}
+    articles: dict[str, int] = {}
+    with zipfile.ZipFile(file) as archive:
+        (name,) = archive.namelist()
+        with archive.open(name) as raw:
+            for line in io.TextIOWrapper(raw, encoding="utf-8", errors="replace"):
+                fields = line.split("\t")
+                if len(fields) <= AVG_TONE:
+                    continue
+                region = REGION_BY_COUNTRY.get(fields[ACTOR1_COUNTRY])
+                if region is None:
+                    continue
+                try:
+                    count = int(fields[NUM_ARTICLES])
+                    tone = float(fields[AVG_TONE])
+                except ValueError:
+                    continue
+                if count <= 0:
+                    continue
+                weighted[region] = weighted.get(region, 0.0) + count * tone
+                articles[region] = articles.get(region, 0) + count
+    return [
+        DailyPoint(day, key, weighted[key] / articles[key], articles[key])
+        for key in sorted(articles)
+    ]

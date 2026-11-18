@@ -1,8 +1,9 @@
-"""Daily model-sentiment history recorded outside this process.
+"""Daily history recorded outside this process.
 
-`newsent.collect` runs hourly in GitHub Actions and commits `trend.csv` (per
-region) and `sources.csv` (per outlet) to the `history` branch, so the trends
-survive hosts whose disk is wiped on restart.
+`newsent.collect` runs hourly in GitHub Actions and commits `trend.csv` (model
+index per region), `sources.csv` (model index per outlet) and `gdelt.csv`
+(GDELT event tone per region) to the `history` branch, so the trends survive
+hosts whose disk is wiped on restart.
 """
 
 import csv
@@ -21,9 +22,11 @@ from newsent.store import DailyPoint, SourceDay, Store, window
 DEFAULT_SOURCE = "https://raw.githubusercontent.com/iamaber/realtime-news-sentiment/history/trend.csv"
 HISTORY_SOURCE = os.environ.get("NEWS_HISTORY", DEFAULT_SOURCE)
 SOURCES_FILE = "sources.csv"
+GDELT_FILE = "gdelt.csv"
 TREND_DAYS = 90
 FIELDS = ["day", "region", "net", "headlines"]
 SOURCE_FIELDS = ["day", "source", "net", "headlines"]
+GDELT_FIELDS = ["day", "region", "tone", "articles"]
 TIMEOUT_SECONDS = 10
 MAX_BYTES = 2_000_000
 CACHE_SECONDS = 900
@@ -45,6 +48,12 @@ def format_sources(points: Iterable[SourceDay]) -> str:
     )
 
 
+def format_gdelt(points: Iterable[DailyPoint]) -> str:
+    return _format(
+        GDELT_FIELDS, ((p.day, p.region, p.value, p.headlines) for p in points)
+    )
+
+
 def _format(fields: list[str], rows: Iterable[tuple[date, str, float, int]]) -> str:
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
@@ -61,6 +70,10 @@ def parse_trend(text: str) -> list[DailyPoint]:
 
 def parse_sources(text: str) -> list[SourceDay]:
     return [SourceDay(*row) for row in _parse(text, SOURCE_FIELDS)]
+
+
+def parse_gdelt(text: str) -> list[DailyPoint]:
+    return [DailyPoint(*row) for row in _parse(text, GDELT_FIELDS)]
 
 
 def _parse(text: str, fields: list[str]) -> list[tuple[date, str, float, int]]:
@@ -90,13 +103,13 @@ class _HttpsOnlyRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-_opener = urllib.request.build_opener(_HttpsOnlyRedirects)
+https_opener = urllib.request.build_opener(_HttpsOnlyRedirects)
 
 
 def _read(source: str) -> str:
     if "://" in source:
         _require_https(source)
-        with _opener.open(source, timeout=TIMEOUT_SECONDS) as response:
+        with https_opener.open(source, timeout=TIMEOUT_SECONDS) as response:
             payload = response.read(MAX_BYTES + 1)
     else:
         with open(source, "rb") as file:
@@ -112,6 +125,10 @@ def load_trend(source: str) -> list[DailyPoint]:
 
 def load_sources(source: str) -> list[SourceDay]:
     return parse_sources(_read(source))
+
+
+def load_gdelt(source: str) -> list[DailyPoint]:
+    return parse_gdelt(_read(source))
 
 
 class ResultOrErrorCache[P]:
@@ -137,6 +154,7 @@ class ResultOrErrorCache[P]:
 
 cached_load_trend = ResultOrErrorCache(load_trend, CACHE_SECONDS)
 cached_load_sources = ResultOrErrorCache(load_sources, CACHE_SECONDS)
+cached_load_gdelt = ResultOrErrorCache(load_gdelt, CACHE_SECONDS)
 
 
 def model_trend(
@@ -162,6 +180,20 @@ def source_trend(
     )
 
 
+def gdelt_trend(
+    days: int,
+    until: date | None = None,
+    load: Callable[[str], list[DailyPoint]] = cached_load_gdelt,
+) -> tuple[list[DailyPoint], str]:
+    if not HISTORY_SOURCE:
+        return [], "collected history is turned off (NEWS_HISTORY is empty)"
+    source = _sibling(HISTORY_SOURCE, GDELT_FILE)
+    try:
+        return _collected(source, load, days, until), _collected_label(source)
+    except Exception as exc:
+        return [], f"collected GDELT history unavailable: {_reason(exc)}"
+
+
 def _sibling(source: str, name: str) -> str:
     if "://" in source:
         return urllib.parse.urljoin(source, name)
@@ -177,19 +209,28 @@ def _collected_or_local[P: _Dated](
 ) -> tuple[list[P], str]:
     if not source:
         return local(), LOCAL_LABEL
-    start, end = window(days, until)
     try:
-        points = [p for p in load(source) if start <= p.day <= end]
+        return _collected(source, load, days, until), _collected_label(source)
     except Exception as exc:
-        reason = str(exc) or type(exc).__name__
-    else:
-        if points:
-            return points, _collected_label(source)
-        reason = f"no collected days in the last {days}"
-    return (
-        local(),
-        f"collected history unavailable: {reason}; showing this instance's recordings",
-    )
+        return (
+            local(),
+            f"collected history unavailable: {_reason(exc)}; "
+            "showing this instance's recordings",
+        )
+
+
+def _collected[P: _Dated](
+    source: str, load: Callable[[str], list[P]], days: int, until: date | None
+) -> list[P]:
+    start, end = window(days, until)
+    points = [p for p in load(source) if start <= p.day <= end]
+    if not points:
+        raise LookupError(f"no collected days in the last {days}")
+    return points
+
+
+def _reason(exc: Exception) -> str:
+    return str(exc) or type(exc).__name__
 
 
 def _collected_label(source: str) -> str:

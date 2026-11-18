@@ -1,10 +1,7 @@
-from datetime import UTC, datetime
-
 import streamlit as st
 
-from dashboard.data import REGION_NAMES, WINDOWS, View, line_chart, trend_frame
-from newsent import gdelt, history
-from newsent.regions import REGIONS
+from dashboard.data import WINDOWS, View, line_chart, trend_frame
+from newsent import history
 from newsent.store import Store
 
 
@@ -19,29 +16,24 @@ def render(view: View, store: Store) -> None:
     smooth = controls[1].toggle("7-day smoothing", value=True)
     days = WINDOWS[window]
 
-    st.subheader("News tone by region")
-    stale = gdelt.stale_regions(store, REGIONS, datetime.now(UTC))
-    if stale:
-        with st.spinner("Fetching regional history from GDELT…"):
-            errors = gdelt.refresh(store, stale)
-        if errors:
-            names = ", ".join(REGION_NAMES[key] for key in errors)
-            reasons = "; ".join(sorted(set(errors.values())))
-            st.caption(f":orange[GDELT history pending for {names}: {reasons}.]")
-
-    tone = trend_frame(store.gdelt_trend(days))
+    st.subheader("GDELT event tone by region")
+    points, origin = history.gdelt_trend(days)
+    tone = trend_frame(points)
     if tone.empty:
-        st.info(
-            "No GDELT history yet. It is fetched on demand and cached for six hours."
-        )
+        st.info("No GDELT tone to show for this window.")
+        st.caption(f"Source: {origin}.")
     else:
         st.plotly_chart(
             line_chart(tone, "GDELT tone", smooth), use_container_width=True
         )
         st.caption(
-            "Daily average tone of all online news published in each region's countries, "
-            "from the [GDELT Project](https://www.gdeltproject.org/). Lexicon-based and "
-            "typically negative; compare regions and direction rather than absolute level."
+            "Daily average tone of the news coverage of events whose main actor is "
+            "from each region's countries, weighted by article count, from the "
+            "[GDELT Project](https://www.gdeltproject.org/)'s daily event files. "
+            "It covers news about the region's actors from outlets worldwide, so it "
+            "differs from our model's index below, which scores the outlets based "
+            "in each region. Lexicon-based and typically negative; compare regions "
+            f"and direction rather than absolute level. Updated daily · {origin}."
         )
 
     st.subheader("Model sentiment index by region")

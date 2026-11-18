@@ -41,16 +41,6 @@ CREATE TABLE IF NOT EXISTS headlines (
     positive REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS headlines_day_region ON headlines (day, region);
-CREATE TABLE IF NOT EXISTS gdelt_tone (
-    region TEXT NOT NULL,
-    day TEXT NOT NULL,
-    tone REAL NOT NULL,
-    PRIMARY KEY (region, day)
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS gdelt_fetch (
-    region TEXT PRIMARY KEY,
-    fetched_at TEXT NOT NULL
-);
 """
 
 
@@ -153,35 +143,6 @@ class Store:
                 [day.isoformat() for day in window(days, until)],
             ).fetchall()
         return [SourceDay(date.fromisoformat(d), s, v, n) for d, s, v, n in rows]
-
-    def gdelt_fetched_at(self, region: str) -> datetime | None:
-        with self._connect() as db:
-            row = db.execute(
-                "SELECT fetched_at FROM gdelt_fetch WHERE region = ?", (region,)
-            ).fetchone()
-        return datetime.fromisoformat(row[0]) if row else None
-
-    def save_gdelt(
-        self, region: str, tone_by_day: Mapping[date, float], fetched_at: datetime
-    ) -> None:
-        with self._connect() as db:
-            db.executemany(
-                "INSERT OR REPLACE INTO gdelt_tone VALUES (?,?,?)",
-                [(region, day.isoformat(), tone) for day, tone in tone_by_day.items()],
-            )
-            db.execute(
-                "INSERT OR REPLACE INTO gdelt_fetch VALUES (?,?)",
-                (region, fetched_at.isoformat()),
-            )
-
-    def gdelt_trend(self, days: int, until: date | None = None) -> list[DailyPoint]:
-        with self._connect() as db:
-            rows = db.execute(
-                "SELECT day, region, tone FROM gdelt_tone WHERE day BETWEEN ? AND ? "
-                "ORDER BY day, region",
-                [day.isoformat() for day in window(days, until)],
-            ).fetchall()
-        return [DailyPoint(date.fromisoformat(d), r, v) for d, r, v in rows]
 
 
 def window(days: int, until: date | None = None) -> tuple[date, date]:
