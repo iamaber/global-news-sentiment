@@ -5,6 +5,7 @@ import * as country from "./views/country.js";
 import * as headlines from "./views/headlines.js";
 import * as regions from "./views/regions.js";
 import * as sources from "./views/sources.js";
+import * as stories from "./views/stories.js";
 import * as topics from "./views/topics.js";
 import * as trends from "./views/trends.js";
 
@@ -14,6 +15,7 @@ const VIEWS = {
   topics: topics.render,
   trends: trends.render,
   headlines: headlines.render,
+  stories: stories.render,
   sources: sources.render,
 };
 const DEFAULT_VIEW = Object.keys(VIEWS)[0];

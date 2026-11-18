@@ -30,7 +30,6 @@
   --unscored: #cdd6da;
   --rule: #c5d0d5;
   --wash: #d7e1e5;
-  --on-gloom: #ffffff;
   --region-1: #0068a8;
   --region-2: #a4407f;
   --region-3: #007a57;
@@ -64,7 +63,6 @@
     --unscored: #1f313b;
     --rule: #2c414c;
     --wash: #162730;
-    --on-gloom: #16303c;
     --region-1: #56b4e9;
     --region-2: #e58fc6;
     --region-3: #3cc795;
@@ -448,13 +446,24 @@ main h3 { margin-top: 36px; }
 .extremes h3 { margin-top: 0; margin-bottom: 8px; }
 .extremes ol { list-style: none; margin: 0; padding: 0; }
 .extremes li { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
-.badge { align-self: start; text-align: center; padding: 2px 0; font-weight: 750; font-variant-numeric: tabular-nums; border-radius: var(--radius); background: var(--wash); }
-.badge[data-sign="negative"] { background: var(--gloom); color: var(--on-gloom); }
-.badge[data-sign="positive"] { background: var(--glow); color: #16303c; }
+.badge { align-self: start; text-align: center; padding: 2px 0; font-weight: 750; font-variant-numeric: tabular-nums; border-radius: var(--radius); background: var(--wash); box-shadow: inset 3px 0 0 var(--fog); }
+.badge[data-sign="negative"] { background: color-mix(in srgb, var(--gloom) 24%, var(--land)); box-shadow: inset 3px 0 0 var(--gloom); }
+.badge[data-sign="positive"] { background: color-mix(in srgb, var(--glow) 34%, var(--land)); box-shadow: inset 3px 0 0 var(--glow); }
 .extremes .caption { margin-top: 2px; }
 .table-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin-top: 32px; }
 .table-wrap.tall { max-height: 70vh; overflow: auto; margin-top: 8px; }
 .table-wrap.tall thead th { position: sticky; top: 0; z-index: 1; background: var(--sea); }
+
+.stories { display: grid; gap: 0; }
+.story { padding: 20px 0; border-bottom: 1px solid var(--rule); max-width: 60rem; }
+.story h3 { margin: 0; font-size: var(--step-2); }
+.story-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.story-badges .badge { padding: 2px 8px; font-size: var(--step-0); }
+.story details { margin-top: 10px; }
+.story summary { cursor: pointer; font-size: var(--step-0); font-weight: 600; color: var(--ink-2); }
+.story-region h4 { margin: 14px 0 4px; font-size: var(--step-0); }
+.story-region ul { list-style: none; margin: 0; padding: 0; }
+.story-region li { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); gap: 12px; padding: 6px 0; }
 
 .footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); }
 .footer p { font-size: var(--step--1); color: var(--ink-2); max-width: var(--measure); }
