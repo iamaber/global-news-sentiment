@@ -3,7 +3,9 @@
 Each event row carries the mean tone of the articles that reported it, GDELT's
 own lexicon score (roughly -10..+10, usually -5..+2), not our model's output.
 A region's tone for a day is the article-weighted mean over the events whose
-main actor (Actor1) is from one of the region's countries.
+main actor (Actor1) is from one of the region's countries. GDELT names
+countries by CAMEO code, which is the ISO-3 code except where CAMEO_BY_ISO3
+says otherwise.
 """
 
 import io
@@ -26,8 +28,9 @@ TIMEOUT_SECONDS = 60
 ACTOR1_COUNTRY = 7
 NUM_ARTICLES = 33
 AVG_TONE = 34
+CAMEO_BY_ISO3 = {"TLS": "TMP"}
 REGION_BY_CAMEO = {
-    country.iso3: region.key
+    CAMEO_BY_ISO3.get(country.iso3, country.iso3): region.key
     for region in REGIONS
     for country in region.source_countries
 }

@@ -48,6 +48,14 @@ def test_read_events_weights_tone_by_articles_per_region():
     ]
 
 
+def test_read_events_counts_timor_leste_under_its_cameo_code():
+    data = events_zip(event("TMP", "4", "-1.0"))
+
+    points = gdelt.read_events(DAY, io.BytesIO(data))
+
+    assert points == [DailyPoint(DAY, "asia_pacific", -1.0, 4)]
+
+
 class FakeOpener:
     def __init__(self, respond):
         self.respond = respond
