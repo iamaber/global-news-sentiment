@@ -200,7 +200,8 @@ a:hover { text-decoration-thickness: 2px; }
 .alert[data-direction="down"] .alert-tag { color: var(--gloom); }
 .alert[data-direction="up"] .alert-tag { color: var(--glow-text); }
 
-main { padding-top: 24px; outline: none; }
+main { padding-top: 24px; }
+main:focus, main:focus-visible { outline: none; }
 main > * + * { margin-top: 20px; }
 .view-title { margin-bottom: 4px; }
 
@@ -221,7 +222,7 @@ main > * + * { margin-top: 20px; }
 .note { padding: 10px 14px; background: var(--land); border-left: 4px solid var(--fog); max-width: var(--measure); }
 .note-error { border-left-color: var(--gloom); }
 
-.table-wrap { overflow-x: auto; max-width: 100%; }
+.table-wrap { position: relative; overflow-x: auto; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; font-size: var(--step-0); }
 th { text-align: left; font-weight: 650; color: var(--ink-2); padding: 8px 12px 6px; border-bottom: 1px solid var(--fog); white-space: nowrap; }
 td { padding: 7px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
@@ -374,7 +375,9 @@ main h3 { margin-top: 36px; }
 .chart .zero { stroke: var(--ink-2); stroke-dasharray: 2 3; }
 .chart .series { fill: none; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
 .chart .marker { stroke: var(--sea); stroke-width: 1.5; }
-.chart .end-label { font: 600 13px var(--font); fill: var(--ink); }
+.chart .end-label text { font: 600 13px var(--font); fill: var(--ink); }
+.chart .end-label path { fill: none; stroke-width: 2; }
+.chart + .caption { margin-top: 12px; }
 .chart .rule { stroke: var(--ink); stroke-width: 1; }
 .chart .focus circle { stroke: var(--sea); stroke-width: 2; }
 .chart-tip { top: 0; white-space: nowrap; }
@@ -482,6 +485,9 @@ main h3 { margin-top: 36px; }
   .readouts { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .map-label { display: none; }
   .extremes-pair { grid-template-columns: minmax(0, 1fr); }
+  .views { gap: 0; padding: 0 12px; }
+  .views a { padding: 10px 4px 9px; font-size: var(--step-0); }
+  .heatmap th[scope="row"] { width: 7.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

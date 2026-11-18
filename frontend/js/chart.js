@@ -1,7 +1,7 @@
 import { h, signed } from "./dom.js";
 
 const HEIGHT = 300;
-const LABEL_ROOM = 150;
+const LABEL_ROOM = 180;
 const WIDE = 560;
 const dayLabel = d3.utcFormat("%b %-d");
 
@@ -52,11 +52,13 @@ export function lineChart({ series, label, format = (v) => signed(v), markers = 
     if (wide) {
       const ends = series.filter((s) => s.points.length).map((s) => {
         const last = s.points.at(-1);
-        return { s, x: x(last.date), y: y(last.value) };
+        return { s, x: x(last.date), y: y(last.value), lineY: y(last.value) };
       }).sort((a, b) => a.y - b.y);
-      for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 16);
-      svg.append("g").selectAll("text").data(ends).join("text").attr("class", "end-label")
-        .attr("x", (d) => d.x + 8).attr("y", (d) => d.y).attr("dy", "0.35em").text((d) => d.s.name);
+      for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 17);
+      const labels = svg.append("g").selectAll("g").data(ends).join("g").attr("class", "end-label");
+      labels.append("path").attr("d", (d) => `M${d.x + 3},${d.lineY}L${d.x + 10},${d.y}h18`)
+        .style("stroke", (d) => d.s.color).attr("stroke-dasharray", (d) => d.s.dash || null);
+      labels.append("text").attr("x", (d) => d.x + 32).attr("y", (d) => d.y).attr("dy", "0.35em").text((d) => d.s.name);
     }
     svg.append("g").attr("class", "focus");
     plot.replaceChildren(svg.node());
