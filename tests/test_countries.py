@@ -49,6 +49,7 @@ def test_countries_are_unique_by_iso3_and_name():
         ("GRL", "americas", set()),
         ("GEO", "europe", set()),
         ("AFG", "asia_pacific", set()),
+        ("IRN", "mea", set()),
     ],
 )
 def test_country_lists_the_outlets_based_there(iso3, region, sources):
