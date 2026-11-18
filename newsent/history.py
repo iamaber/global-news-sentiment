@@ -1,9 +1,9 @@
 """Daily history recorded outside this process.
 
 `newsent.collect` runs hourly in GitHub Actions and commits `trend.csv` (model
-index per region), `sources.csv` (model index per outlet) and `gdelt.csv`
-(GDELT event tone per region) to the `history` branch, so the trends survive
-hosts whose disk is wiped on restart.
+index per region), `sources.csv` (model index per outlet), `gdelt.csv` (GDELT
+event tone per region) and `gdelt-countries.csv` to the `history` branch, so
+the trends survive hosts whose disk is wiped on restart.
 """
 
 import csv
@@ -13,7 +13,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from datetime import date
 from typing import Protocol
 
@@ -23,10 +23,12 @@ DEFAULT_SOURCE = "https://raw.githubusercontent.com/iamaber/realtime-news-sentim
 HISTORY_SOURCE = os.environ.get("NEWS_HISTORY", DEFAULT_SOURCE)
 SOURCES_FILE = "sources.csv"
 GDELT_FILE = "gdelt.csv"
+GDELT_COUNTRIES_FILE = "gdelt-countries.csv"
 TREND_DAYS = 90
 FIELDS = ["day", "region", "net", "headlines"]
 SOURCE_FIELDS = ["day", "source", "net", "headlines"]
 GDELT_FIELDS = ["day", "region", "tone", "articles"]
+GDELT_COUNTRY_FIELDS = ["code", "region"]
 TIMEOUT_SECONDS = 10
 MAX_BYTES = 2_000_000
 CACHE_SECONDS = 900
@@ -52,6 +54,14 @@ def format_gdelt(points: Iterable[DailyPoint]) -> str:
     return _format(
         GDELT_FIELDS, ((p.day, p.region, p.value, p.headlines) for p in points)
     )
+
+
+def format_gdelt_countries(region_by_code: Mapping[str, str]) -> str:
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(GDELT_COUNTRY_FIELDS)
+    writer.writerows(sorted(region_by_code.items()))
+    return out.getvalue()
 
 
 def _format(fields: list[str], rows: Iterable[tuple[date, str, float, int]]) -> str:

@@ -26,8 +26,9 @@ TIMEOUT_SECONDS = 60
 ACTOR1_COUNTRY = 7
 NUM_ARTICLES = 33
 AVG_TONE = 34
-REGION_BY_COUNTRY = {
-    country.iso3: region.key
+CAMEO_BY_ISO3 = {"TLS": "TMP"}
+REGION_BY_CAMEO = {
+    CAMEO_BY_ISO3.get(country.iso3, country.iso3): region.key
     for region in REGIONS
     for country in region.source_countries
 }
@@ -71,7 +72,7 @@ def read_events(day: date, file: BinaryIO) -> list[DailyPoint]:
                 fields = line.split("\t")
                 if len(fields) <= AVG_TONE:
                     continue
-                region = REGION_BY_COUNTRY.get(fields[ACTOR1_COUNTRY])
+                region = REGION_BY_CAMEO.get(fields[ACTOR1_COUNTRY])
                 if region is None:
                     continue
                 try:

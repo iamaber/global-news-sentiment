@@ -67,12 +67,25 @@ def collect_gdelt(
     fetch_day: Callable[[date], list[DailyPoint]] = gdelt.fetch_day,
 ) -> list[date]:
     path = directory / history.GDELT_FILE
+    mapping_path = directory / history.GDELT_COUNTRIES_FILE
+    mapping = history.format_gdelt_countries(gdelt.REGION_BY_CAMEO)
     try:
         points = history.parse_gdelt(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         points = []
     except Exception as exc:
         print(f"GDELT: rebuilding unreadable {path.name}: {exc}", file=sys.stderr)
+        points = []
+    try:
+        recorded_mapping = mapping_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        recorded_mapping = None
+    if points and recorded_mapping != mapping:
+        print(
+            f"GDELT: rebuilding {path.name}: {mapping_path.name} does not match "
+            "the current country mapping",
+            file=sys.stderr,
+        )
         points = []
     window = [today - timedelta(days=n) for n in range(1, history.TREND_DAYS + 1)]
     points = [p for p in points if p.day >= window[-1]]
@@ -89,6 +102,7 @@ def collect_gdelt(
         added.append(day)
     points.sort(key=lambda p: (p.day, p.region))
     path.write_text(history.format_gdelt(points), encoding="utf-8")
+    mapping_path.write_text(mapping, encoding="utf-8")
     return added
 
 

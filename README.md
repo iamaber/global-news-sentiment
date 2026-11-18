@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Streamlit dashboard that reads 20 news outlets across four regions, scores
+A Streamlit dashboard that reads 21 news outlets across four regions, scores
 every headline with a three-class sentiment model, and charts how each region's
 news tone moves over 7, 30, and 90 days. A FastAPI service exposes the same data
 as JSON.
@@ -23,7 +23,8 @@ as JSON.
   under it, to open its page. It lists the outlets based there with their
   current headline count and mean index, the country's daily index, and its
   current headlines. A country with no outlet of its own shows its region's
-  figures.
+  figures. Every country except Antarctica is listed. Countries too small to
+  click on the map can be picked from the list.
 - **Topics.** Each headline is tagged economy, conflict, politics, climate,
   or tech by keywords in its title, and can carry several. A heatmap shows the
   sentiment index per region and topic, and a picker lists the matching
@@ -51,11 +52,16 @@ a region when the event's main actor is from one of the region's countries,
 whichever outlet in the world reported it. The two trend series measure
 different things, so compare their direction, not their level.
 
+Every country belongs to exactly one region, 202 in all, excluding
+Antarctica. Greenland is counted in the Americas and the Caucasus countries
+(Armenia, Azerbaijan, Georgia) in Europe. Countries too small to show on the
+map are still in the country picker.
+
 | Region | Outlets |
 | --- | --- |
 | Americas | NPR, New York Times, CNBC, CBC News, Buenos Aires Times |
 | Europe | BBC News, The Guardian, Deutsche Welle, France 24, RTÉ News |
-| Asia-Pacific | South China Morning Post, Times of India, CNA, The Japan Times, ABC News Australia |
+| Asia-Pacific | South China Morning Post, Times of India, CNA, The Japan Times, ABC News Australia, Prothom Alo |
 | Middle East & Africa | Al Jazeera, The Times of Israel, AllAfrica, Daily Maverick, Nation |
 
 `newsent/regions.py` is the single registry for regions, feeds, and the
@@ -84,9 +90,13 @@ reported it. A region's daily tone is the mean over events whose first actor
 event's article count. It runs negative for most news, so compare its
 direction and the gaps between regions, not its absolute level.
 
+`Actor1CountryCode` is a CAMEO code. It equals the ISO-3 code except for
+Timor-Leste, which GDELT codes `TMP`. GDELT's files leave the code empty for
+Romanian actors, so Romania's events are not counted.
+
 ## Performance
 
-- All 20 feeds are fetched concurrently under one 15 s deadline.
+- All 21 feeds are fetched concurrently under one 15 s deadline.
 - Scores are cached in SQLite by headline. A refresh scores only headlines it
   has not seen, so a typical refresh after the first one runs the model on a
   handful of headlines.
@@ -183,7 +193,7 @@ The database keeps 120 days of headlines. Delete the file to start over.
 A Space's disk is wiped on restart, so the dashboard cannot build a long trend
 on its own. `.github/workflows/collect.yml` runs `python -m newsent.collect` at
 17 minutes past every hour. Each run fetches every feed, scores only headlines
-it has not seen before, and commits four things to the `history` branch:
+it has not seen before, and commits five things to the `history` branch:
 
 - `days/YYYY-MM-DD.jsonl`, one scored headline per line, appended to the UTC
   day it was first seen. Files older than 120 days are deleted.
@@ -192,6 +202,8 @@ it has not seen before, and commits four things to the `history` branch:
   pages read it from the same directory as `trend.csv`.
 - `gdelt.csv`, the daily GDELT event tone and article count per region over
   the 90 days before today (UTC), with the columns `day,region,tone,articles`.
+- `gdelt-countries.csv`, the country codes `gdelt.csv` counted for each
+  region, with the columns `code,region`.
 
 Each run downloads GDELT's event file
 (`https://data.gdeltproject.org/events/YYYYMMDD.export.CSV.zip`, about 7 MB)
@@ -201,6 +213,10 @@ downloads at most one file, yesterday's. GDELT publishes that file early in
 the UTC day, so a run that gets a 404 skips the day and the next run tries
 again. Any other GDELT error is logged and does not stop the headline
 collection. The dashboard and the API never call GDELT themselves.
+
+When the country-to-region mapping changes, `gdelt-countries.csv` no longer
+matches it. The next run discards `gdelt.csv` and refills it newest first, so
+the GDELT trend is rebuilt under the new mapping over about six runs.
 
 The dashboard and the API read the CSV files from `raw.githubusercontent.com`
 and keep the result, or the error, for 15 minutes. A fork that enables the
