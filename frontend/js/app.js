@@ -4,10 +4,12 @@ import { indexRegistry, indexSnapshot } from "./model.js";
 import * as country from "./views/country.js";
 import * as regions from "./views/regions.js";
 import * as sources from "./views/sources.js";
+import * as topics from "./views/topics.js";
 
 const VIEWS = {
   regions: regions.render,
   country: country.render,
+  topics: topics.render,
   sources: sources.render,
 };
 const DEFAULT_VIEW = Object.keys(VIEWS)[0];

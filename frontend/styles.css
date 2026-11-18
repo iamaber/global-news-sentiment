@@ -382,6 +382,25 @@ main h3 { margin-top: 36px; }
 .chart-key li { display: flex; align-items: center; gap: 6px; }
 .chart-key[hidden] { display: none; }
 
+.heatmap { table-layout: fixed; min-width: 36rem; }
+.heatmap th[scope="row"] { width: 11rem; color: var(--ink); white-space: normal; border-bottom: 2px solid var(--sea); }
+.heatmap thead th { border-bottom: 0; }
+.heatmap td { height: 64px; padding: 8px 10px; border: 2px solid var(--sea); vertical-align: middle; }
+.heatmap td:first-child { padding-left: 0; }
+.heatmap td strong { display: block; font-size: var(--step-3); font-weight: 750; line-height: 1.1; }
+.heatmap td span { font-size: var(--step--1); }
+.heatmap td.empty { background: transparent; }
+
+.explainer { max-width: var(--measure); }
+.explainer summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.explainer dl { margin: 8px 0 12px; }
+.explainer dl div { padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.explainer dt { font-weight: 650; }
+.explainer dd { margin: 0; font-size: var(--step-0); color: var(--ink-2); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; }
+.controls .field { min-width: min(100%, 16rem); }
+
 .footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); }
 .footer p { font-size: var(--step--1); color: var(--ink-2); max-width: var(--measure); }
 

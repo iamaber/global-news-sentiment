@@ -11,7 +11,21 @@ export function sentimentScale(bound) {
   return d3.scaleDiverging([-bound, 0, bound], ramp).clamp(true);
 }
 
-export const textOn = (color) => (d3.lab(color).l > 58 ? DARK_TEXT : LIGHT_TEXT);
+function luminance(color) {
+  const { r, g, b } = d3.rgb(color);
+  const [R, G, B] = [r, g, b].map((v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+const contrast = (a, b) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+export const textOn = (color) => (contrast(color, DARK_TEXT) >= contrast(color, LIGHT_TEXT) ? DARK_TEXT : LIGHT_TEXT);
 
 export function regionStyle(registry, key) {
   const position = registry.regions.findIndex((region) => region.key === key);
