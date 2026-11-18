@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --extra dev --extra api
+        run: uv sync --extra dev
       - name: Run tests
         run: uv run pytest -q
 
@@ -34,7 +34,7 @@ jobs:
       - name: Stage the Space
         run: |
           mkdir space
-          cp -r Dockerfile app.py dashboard newsent .streamlit requirements.txt \
+          cp -r Dockerfile backend frontend newsent requirements.txt \
             pyproject.toml uv.lock .python-version LICENSE .gitignore space/
           cat .github/space/header.md README.md > space/README.md
       - name: Upload to the Space

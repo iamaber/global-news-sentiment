@@ -6,13 +6,12 @@ WORKDIR /home/user/app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
-COPY dashboard dashboard
+COPY backend backend
 COPY newsent newsent
-COPY .streamlit .streamlit
+COPY frontend frontend
 RUN mkdir data && chown -R user /home/user
 
 USER user
 ENV HOME=/home/user
 EXPOSE 8501
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8501", "--proxy-headers", "--forwarded-allow-ips=*"]
