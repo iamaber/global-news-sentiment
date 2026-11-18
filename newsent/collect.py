@@ -1,4 +1,4 @@
-"""Scheduled collector for the model-sentiment history."""
+"""Scheduled collector for the model-sentiment and GDELT tone history."""
 
 import argparse
 import json
@@ -6,14 +6,16 @@ import sys
 import tempfile
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
-from newsent import feeds, history, model
+from newsent import feeds, gdelt, history, model
 from newsent.feeds import FeedStatus, Headline
 from newsent.pipeline import Snapshot, take_snapshot
 from newsent.scores import Scores
-from newsent.store import Store, retention_cutoff
+from newsent.store import DailyPoint, Store, retention_cutoff
+
+GDELT_DAYS_PER_RUN = 15
 
 
 def collect(
@@ -59,6 +61,37 @@ def collect(
     return snapshot
 
 
+def collect_gdelt(
+    directory: Path,
+    today: date,
+    fetch_day: Callable[[date], list[DailyPoint]] = gdelt.fetch_day,
+) -> list[date]:
+    path = directory / history.GDELT_FILE
+    try:
+        points = history.parse_gdelt(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        points = []
+    except Exception as exc:
+        print(f"GDELT: rebuilding unreadable {path.name}: {exc}", file=sys.stderr)
+        points = []
+    window = [today - timedelta(days=n) for n in range(1, history.TREND_DAYS + 1)]
+    points = [p for p in points if p.day >= window[-1]]
+    have = {p.day for p in points}
+    added = []
+    for day in [day for day in window if day not in have][:GDELT_DAYS_PER_RUN]:
+        try:
+            points += fetch_day(day)
+        except gdelt.DayNotPublished:
+            continue
+        except Exception as exc:
+            print(f"GDELT: stopped at {day}: {exc}", file=sys.stderr)
+            break
+        added.append(day)
+    points.sort(key=lambda p: (p.day, p.region))
+    path.write_text(history.format_gdelt(points), encoding="utf-8")
+    return added
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", type=Path)
@@ -70,6 +103,8 @@ def main() -> None:
         f"{len(snapshot.items)} headlines fetched, {snapshot.newly_scored} newly "
         f"scored, {ok}/{len(snapshot.statuses)} feeds ok"
     )
+    added = collect_gdelt(args.directory, snapshot.taken_at.date())
+    print(f"GDELT tone added for {len(added)} day(s)")
     if ok == 0:
         sys.exit("no news feed responded")
 

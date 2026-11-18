@@ -28,11 +28,13 @@ as JSON.
   or tech by keywords in its title, and can carry several. A heatmap shows the
   sentiment index per region and topic, and a picker lists the matching
   headlines for any topic and region.
-- **Trends.** Two daily series per region. GDELT tone covers the last 90 days
-  from the first load. The model's own index comes from the hourly collector
-  described under [Collected history](#collected-history), and falls back to
-  the snapshots this instance has recorded when that history is unavailable.
-  The chart caption says which one you are looking at.
+- **Trends.** Two daily series per region, both read from the hourly collector
+  described under [Collected history](#collected-history). GDELT event tone is
+  the tone of the news coverage of events whose main actor is from the
+  region's countries, from GDELT's daily event files. The model's own index
+  scores the outlets based in the region, and falls back to the snapshots this
+  instance has recorded when the collected history is unavailable. Each chart
+  caption says where its data came from.
 - **Headlines.** Every scored headline, filterable by region, sentiment, and
   text, with the five most positive and most negative, a link to each story,
   and CSV export.
@@ -44,8 +46,10 @@ as JSON.
 ## Regions and outlets
 
 A headline belongs to the region where its outlet is based, not where the
-story happens. GDELT's `sourcecountry` filter uses the same rule, so both trend
-series measure the same thing.
+story happens. GDELT event tone uses a different rule. It counts an event for
+a region when the event's main actor is from one of the region's countries,
+whichever outlet in the world reported it. The two trend series measure
+different things, so compare their direction, not their level.
 
 | Region | Outlets |
 | --- | --- |
@@ -55,7 +59,7 @@ series measure the same thing.
 | Middle East & Africa | Al Jazeera, The Times of Israel, AllAfrica, Daily Maverick, Nation |
 
 `newsent/regions.py` is the single registry for regions, feeds, and the
-countries used by the map and the GDELT queries. To add an outlet, add a `Feed`
+countries used by the map and the GDELT event tone. To add an outlet, add a `Feed`
 to its region. The feed allowlist is derived from that registry.
 
 ## How sentiment is measured
@@ -72,10 +76,13 @@ A region's index is the mean over its headlines. The model was trained on
 tweets, not news, so treat the index as a relative signal between regions and
 over time. This repository does not claim a measured accuracy on headlines.
 
-GDELT tone is a separate, lexicon-based score from the
-[GDELT Project](https://www.gdeltproject.org/) and sits on its own axis. It runs
-negative for most news, so compare its direction and the gaps between regions,
-not its absolute level.
+GDELT event tone is a separate, lexicon-based score from the
+[GDELT Project](https://www.gdeltproject.org/) and sits on its own axis. Each
+event in GDELT's daily event file carries the mean tone of the articles that
+reported it. A region's daily tone is the mean over events whose first actor
+(`Actor1CountryCode`) is one of the region's countries, weighted by each
+event's article count. It runs negative for most news, so compare its
+direction and the gaps between regions, not its absolute level.
 
 ## Performance
 
@@ -121,7 +128,7 @@ uv run python main.py --mode backend
 | `GET /headlines` | Scored headlines with label, class probabilities, index, and per-feed status |
 | `GET /regions` | Per-region headline count, index, and label shares |
 | `GET /trends?days=30&source=model` | Daily per-region index (`days` 1–90), plus `origin`, where the series came from |
-| `GET /trends?days=30&source=gdelt` | Daily per-region GDELT tone, plus any per-region fetch errors |
+| `GET /trends?days=30&source=gdelt` | Daily per-region GDELT event tone and article count from the collected `gdelt.csv`, plus `origin`, where the series came from or why it is empty |
 | `GET /ready` | 503 until the model is loaded |
 | `GET /health` | Liveness |
 
@@ -148,8 +155,8 @@ scoring requests. Pass `--host 0.0.0.0` only behind an authenticating proxy.
 │   ├── feeds.py           # Bounded, concurrent RSS fetching
 │   ├── scores.py          # Class probabilities, label, and sentiment index
 │   ├── model.py           # Pinned RoBERTa model and batched scoring
-│   ├── store.py           # SQLite score cache, model trend, GDELT cache
-│   ├── gdelt.py           # GDELT DOC API client with throttling
+│   ├── store.py           # SQLite score cache and model trend
+│   ├── gdelt.py           # Daily GDELT event file download and per-region tone
 │   ├── pipeline.py        # Fetch, score unseen headlines, persist, summarise
 │   ├── collect.py         # Hourly collector that writes the history branch
 │   └── history.py         # Reads collected history, falls back to the store
@@ -167,7 +174,7 @@ No API keys are needed.
 | --- | --- | --- |
 | `NEWS_SENTIMENT_DB` | SQLite file for scores and trend history | `data/news_sentiment.db` |
 | `HF_HOME` | Hugging Face model cache | a directory under the system temp dir |
-| `NEWS_HISTORY` | Collected `trend.csv`, as an https URL or a local path. Empty uses only this instance's recordings | the `history` branch on GitHub |
+| `NEWS_HISTORY` | Collected `trend.csv`, as an https URL or a local path. `sources.csv` and `gdelt.csv` are read from the same directory. Empty uses only this instance's recordings and shows no GDELT tone | the `history` branch on GitHub |
 
 The database keeps 120 days of headlines. Delete the file to start over.
 
@@ -176,15 +183,26 @@ The database keeps 120 days of headlines. Delete the file to start over.
 A Space's disk is wiped on restart, so the dashboard cannot build a long trend
 on its own. `.github/workflows/collect.yml` runs `python -m newsent.collect` at
 17 minutes past every hour. Each run fetches every feed, scores only headlines
-it has not seen before, and commits three things to the `history` branch:
+it has not seen before, and commits four things to the `history` branch:
 
 - `days/YYYY-MM-DD.jsonl`, one scored headline per line, appended to the UTC
   day it was first seen. Files older than 120 days are deleted.
 - `trend.csv`, the daily mean index per region over the last 90 days.
 - `sources.csv`, the daily mean index per outlet over the last 90 days. Country
   pages read it from the same directory as `trend.csv`.
+- `gdelt.csv`, the daily GDELT event tone and article count per region over
+  the 90 days before today (UTC), with the columns `day,region,tone,articles`.
 
-The dashboard and the API read `trend.csv` from `raw.githubusercontent.com`
+Each run downloads GDELT's event file
+(`https://data.gdeltproject.org/events/YYYYMMDD.export.CSV.zip`, about 7 MB)
+for every day missing from `gdelt.csv`, newest first, up to 15 files per run.
+A new history branch fills its 90 days in six runs. After that, a run
+downloads at most one file, yesterday's. GDELT publishes that file early in
+the UTC day, so a run that gets a 404 skips the day and the next run tries
+again. Any other GDELT error is logged and does not stop the headline
+collection. The dashboard and the API never call GDELT themselves.
+
+The dashboard and the API read the CSV files from `raw.githubusercontent.com`
 and keep the result, or the error, for 15 minutes. A fork that enables the
 workflow publishes its own history. Point `NEWS_HISTORY` at the fork's raw
 URL. To collect without GitHub, run the collector from cron and set
@@ -202,8 +220,8 @@ uv run pytest -q
 ```
 
 The tests cover feed parsing and deduplication, URL and redirect validation,
-the score cache, trend aggregation, the collector and its fallback, GDELT
-parsing and rate-limit handling, and every API route. None of them download the
+the score cache, trend aggregation, the collector and its fallback, GDELT event
+file parsing and day selection, and every API route. None of them download the
 model or touch the network. CI runs the same commands on every push to `main`
 and on every pull request.
 
@@ -250,9 +268,11 @@ cannot use.
 listed on the **Sources** tab. If every feed fails, the app shows an error and
 the feed statuses.
 
-**GDELT history is pending.** GDELT throttles clients hard. After a rate limit
-the app waits five minutes before it asks again and shows whatever history is
-already cached. Each region is cached for six hours once it loads.
+**The GDELT chart is empty.** The caption under the message names the reason.
+The app reads GDELT tone only from the collected `gdelt.csv` and never calls
+GDELT. If the caption says the collected GDELT history is unavailable, check
+the latest run of the "Collect history" workflow. Its log names any day it
+could not download.
 
 **The model trend says "come back tomorrow".** The model trend needs at least
 two days of data. The caption under the message names the source. If it says
