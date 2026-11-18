@@ -46,6 +46,7 @@ def test_countries_are_unique_by_iso3_and_name():
         ("USA", "americas", {"NPR", "New York Times", "CNBC"}),
         ("HKG", "asia_pacific", {"South China Morning Post"}),
         ("MEX", "americas", set()),
+        ("GRL", "americas", set()),
     ],
 )
 def test_country_lists_the_outlets_based_there(iso3, region, sources):
