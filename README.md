@@ -214,10 +214,13 @@ Streamlit on Python 3.12 and port 8501. It is not a Streamlit SDK Space because
 that SDK installs `requirements.txt` together with unhashed packages of its own
 in one `pip` command, and `--require-hashes` then rejects the whole install.
 
-The Space's settings live in the YAML frontmatter of its own README, which is
-not part of this repository. It needs `sdk: docker` and `app_port: 8501`. To
-deploy, upload `Dockerfile`, `app.py`, `dashboard/`, `newsent/`, `.streamlit/`
-and `requirements.txt` with `hf upload <space> . --repo-type space`.
+Every push to `main` deploys itself. After the tests pass, the `deploy-space`
+job in `.github/workflows/ci.yml` uploads the app to the Space with the
+`HF_TOKEN` repository secret. The Space's README is this README with
+`.github/space/header.md` on top, which holds the Space settings
+(`sdk: docker`, `app_port: 8501`). Edit that header to change the Space's
+title or settings. The upload adds and updates files but never deletes them, so
+remove a file from the Space by hand when you delete it here.
 
 A Space's disk is wiped on restart. The model trend comes from the collected
 history, so it survives restarts. To keep the instance's own fallback
