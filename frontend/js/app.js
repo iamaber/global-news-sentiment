@@ -1,11 +1,13 @@
 import { clearCache, describeError, getJson } from "./api.js";
 import { h, percent, plural, signed, utcTime } from "./dom.js";
 import { indexRegistry, indexSnapshot } from "./model.js";
+import * as country from "./views/country.js";
 import * as regions from "./views/regions.js";
 import * as sources from "./views/sources.js";
 
 const VIEWS = {
   regions: regions.render,
+  country: country.render,
   sources: sources.render,
 };
 const DEFAULT_VIEW = Object.keys(VIEWS)[0];

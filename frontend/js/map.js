@@ -29,6 +29,7 @@ export function worldMap(map, { fillFor, describe, onSelect, selected, focus, la
   const projection = d3.geoEqualEarth();
   let height = FOCUS_HEIGHT;
   if (focus) {
+    projection.rotate([-d3.geoCentroid(target)[0], 0]);
     projection.fitExtent([[24, 24], [WIDTH - 24, height - 24]], target);
   } else {
     projection.fitWidth(WIDTH, target);
