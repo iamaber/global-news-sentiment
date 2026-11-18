@@ -521,6 +521,19 @@ def test_unknown_country_is_404(client):
     assert client.get("/api/countries/XYZ").status_code == 404
 
 
+@pytest.mark.parametrize("path", ["/headlines", "/regions", "/trends"])
+def test_pre_api_routes_are_gone(client, path):
+    assert client.get(path).status_code == 404
+
+
+def test_frontend_is_served_at_the_root(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.text == (REPO_ROOT / "frontend" / "index.html").read_text()
+
+
 def test_health_is_shallow_liveness(client, monkeypatch):
     monkeypatch.setattr(api_module, "is_loaded", lambda: False)
 
@@ -552,6 +565,7 @@ def test_rate_limit_allows_60_api_requests_a_minute(client, monkeypatch):
     assert response.headers["Retry-After"] == "60"
     assert client.get("/health").status_code == 200
     assert client.get("/ready").status_code == 200
+    assert client.get("/").status_code == 200
 
 
 def test_rate_limiter_forgets_idle_clients(client, monkeypatch):
