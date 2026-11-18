@@ -5,7 +5,7 @@ from functools import lru_cache
 
 # huggingface_hub reads these when transformers is imported.
 os.environ.setdefault(
-    "HF_HOME", os.path.join(tempfile.gettempdir(), "realtime-news-sentiment-hf")
+    "HF_HOME", os.path.join(tempfile.gettempdir(), "global-news-sentiment-hf")
 )
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 

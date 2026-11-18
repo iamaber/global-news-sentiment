@@ -19,7 +19,9 @@ from typing import Protocol
 
 from newsent.store import DailyPoint, SourceDay, Store, window
 
-DEFAULT_SOURCE = "https://raw.githubusercontent.com/iamaber/realtime-news-sentiment/history/trend.csv"
+DEFAULT_SOURCE = (
+    "https://raw.githubusercontent.com/iamaber/global-news-sentiment/history/trend.csv"
+)
 HISTORY_SOURCE = os.environ.get("NEWS_HISTORY", DEFAULT_SOURCE)
 SOURCES_FILE = "sources.csv"
 GDELT_FILE = "gdelt.csv"

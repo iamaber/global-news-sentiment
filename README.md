@@ -7,8 +7,8 @@ headline with a three-class sentiment model, and charts how each region's news
 tone moves over 7, 30, and 90 days. One FastAPI app serves the page and the
 JSON it reads.
 
-- Live demo: <https://huggingface.co/spaces/iamaber/Real-time-News-Sentiment-Analysis>
-- GitHub: <https://github.com/iamaber/realtime-news-sentiment>
+- Live demo: <https://huggingface.co/spaces/iamaber/global-news-sentiment>
+- GitHub: <https://github.com/iamaber/global-news-sentiment>
 
 ## What the dashboard shows
 
@@ -108,8 +108,8 @@ Romanian actors, so Romania's events are not counted.
 With [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/iamaber/realtime-news-sentiment.git
-cd realtime-news-sentiment
+git clone https://github.com/iamaber/global-news-sentiment.git
+cd global-news-sentiment
 uv sync
 uv run python main.py
 ```
@@ -246,59 +246,6 @@ the score cache, trend aggregation, the collector and its fallback, GDELT event
 file parsing and day selection, every API route and its rate limit, and the
 page served at `/`. None of them download the model or touch the network. CI
 runs the same commands on every push to `main` and on every pull request.
-
-## Deploying to Hugging Face Spaces
-
-The Space is a Docker Space built from `Dockerfile`. It installs the hashed
-`requirements.txt` and runs `uvicorn backend.api:app` on Python 3.12 and port
-8501. Uvicorn runs with `--proxy-headers`, so the rate limiter counts each
-visitor's address and not that of Hugging Face's proxy.
-
-Every push to `main` deploys itself. After the tests pass, the `deploy-space`
-job in `.github/workflows/ci.yml` uploads the app to the Space with the
-`HF_TOKEN` repository secret. The Space's README is this README with
-`.github/space/header.md` on top, which holds the Space settings
-(`sdk: docker`, `app_port: 8501`). Edit that header to change the Space's
-title or settings. The upload adds and updates files but never deletes them, so
-remove a file from the Space by hand when you delete it here.
-
-A Space's disk is wiped on restart. The model trend comes from the collected
-history, so it survives restarts. To keep the instance's own fallback
-recordings too, enable persistent storage and point `NEWS_SENTIMENT_DB` at
-`/data/news_sentiment.db`.
-
-`requirements.txt` is generated from `uv.lock`:
-
-```bash
-uv export --format requirements-txt --no-dev --no-emit-project --offline \
-  --emit-index-url -o requirements.txt
-```
-
-Add `--require-hashes` below the index lines after regenerating. uv emits the
-PyTorch CPU index globally because a requirements file cannot scope an index to
-one package. The hashes still make the install integrity-safe, because every
-package must match its locked hash.
-
-The CPU index exists only for the Linux `torch==2.7.1+cpu` wheel. The default
-PyPI wheel on Linux pulls about 3 GB of CUDA packages that a CPU-only Space
-cannot use.
-
-## Troubleshooting
-
-**No headlines are shown.** The app needs outbound HTTPS access to the feeds
-listed in the **Sources** view. If every feed fails, the page shows an error
-and the feed statuses.
-
-**The GDELT chart is empty.** The caption under the message names the reason.
-The app reads GDELT tone only from the collected `gdelt.csv` and never calls
-GDELT. If the caption says the collected GDELT history is unavailable, check
-the latest run of the "Collect history" workflow. Its log names any day it
-could not download.
-
-**The model trend says "come back tomorrow".** The model trend needs at least
-two days of data. The caption under the message names the source. If it says
-collected history is unavailable, check the latest run of the "Collect
-history" workflow.
 
 ## License
 

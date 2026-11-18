@@ -42,6 +42,6 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           uvx --from huggingface_hub==2.4.0 hf upload \
-            iamaber/Real-time-News-Sentiment-Analysis space . \
+            iamaber/global-news-sentiment space . \
             --repo-type space \
             --commit-message "Deploy ${GITHUB_SHA::7} from GitHub"

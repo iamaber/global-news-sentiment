@@ -1,5 +1,5 @@
 [project]
-name = "realtime-news-sentiment"
+name = "global-news-sentiment"
 version = "0.3.0"
 description = "Regional news sentiment dashboard and API: live RSS headlines scored by a three-class RoBERTa model, with 30/90-day regional trends."
 readme = "README.md"
